@@ -6,7 +6,7 @@ namespace ChessChallenge.Application
     {
         public const string Version = "1.1";
 
-        public const int GameDurationMilliseconds = 60 * 1000;
+        public const int GameDurationMilliseconds = int.MaxValue;
         public const float MinMoveDelay = 0;
         public static readonly bool RunBotsOnSeparateThread = true;
 
