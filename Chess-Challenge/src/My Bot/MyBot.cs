@@ -29,7 +29,7 @@ public class MyBot : IChessBot
 		Move bestMove = legalMoves.MaxBy(move =>
 		{
 			board.MakeMove(move);
-			int eval = mTeamMult * EvaluateBoardMinimax(board, 5, -kMassiveNum, kMassiveNum, !mIsWhite);
+			int eval = mTeamMult * EvaluateBoardMinimax(board, 4, -kMassiveNum, kMassiveNum, !mIsWhite);
 			board.UndoMove(move);
 			return eval;
 		});
@@ -45,10 +45,15 @@ public class MyBot : IChessBot
 	int EvaluateBoardMinimax(Board board, int depth, int alpha, int beta, bool maximise)
 	{
 		Move[] legalMoves;
-		if(depth == 0 || (legalMoves = board.GetLegalMoves()).Length == 0)
-		{
+
+		if (board.IsInCheckmate())
+			return board.IsWhiteToMove ? -kBigNum : kBigNum;
+
+		if (board.IsDraw())
+			return 0;
+
+		if (depth == 0 || (legalMoves = board.GetLegalMoves()).Length == 0)
 			return EvaluateBoard(board);
-		}
 
 		if(maximise)
 		{
@@ -88,12 +93,6 @@ public class MyBot : IChessBot
 	int EvaluateBoard(Board board)
 	{
 		int sum = 0;
-
-		if(board.IsInCheckmate())
-			return board.IsWhiteToMove ? -kBigNum : kBigNum;
-
-		if (board.IsDraw())
-			return 0;
 
 		for (int i = 0; ++i < 7;)
 			sum += (board.GetPieceList((PieceType)i, true).Count - board.GetPieceList((PieceType)i, false).Count) * kPieceValues[i];
