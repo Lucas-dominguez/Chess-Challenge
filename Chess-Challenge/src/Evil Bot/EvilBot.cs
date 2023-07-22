@@ -10,6 +10,7 @@ namespace ChessChallenge.Example
     {
 		//                     .  P    K    B    R    Q    K
 		int[] kPieceValues = { 0, 100, 300, 310, 500, 900, 10000 };
+		int kBigNum = 9999999;
 
 		bool mIsWhite;
 
@@ -18,14 +19,15 @@ namespace ChessChallenge.Example
 			Move[] legalMoves = board.GetLegalMoves();
 			mIsWhite = board.IsWhiteToMove;
 
-			return legalMoves.MaxBy(x => EvaluateMoveMinMax(board, x));
+			return legalMoves.MaxBy(x => EvaluateMoveMinMax(board, timer, x));
 		}
 
-		int EvaluateMoveMinMax(Board board, Move move, int depth = 4)
+		int EvaluateMoveMinMax(Board board, Timer timer, Move move, int depth = 4)
 		{
 			bool isUs = board.IsWhiteToMove == mIsWhite;
 			int finalScore;
 
+			int moveBonus = (move.IsCapture ? 5 : -5) - (int)move.MovePieceType + timer.MillisecondsElapsedThisTurn % 10;
 			board.MakeMove(move);
 			depth--;
 
@@ -33,17 +35,23 @@ namespace ChessChallenge.Example
 				finalScore = Evaluate(board);
 			else
 			{
-				finalScore = isUs ? int.MaxValue : int.MinValue;
-				foreach (Move candidateMove in board.GetLegalMoves())
+				Move[] legalMoves = board.GetLegalMoves();
+				if (legalMoves.Length == 0)
+					finalScore = Evaluate(board);
+				else
 				{
-					int eval = EvaluateMoveMinMax(board, candidateMove, depth);
-					if (eval > finalScore != isUs)
-						finalScore = eval;
+					finalScore = isUs ? kBigNum : -kBigNum;
+					foreach (Move candidateMove in legalMoves)
+					{
+						int eval = EvaluateMoveMinMax(board, timer, candidateMove, depth);
+						if (eval > finalScore != isUs)
+							finalScore = eval;
+					}
 				}
 			}
 			board.UndoMove(move);
 
-			return finalScore;
+			return finalScore + moveBonus;
 		}
 
 
@@ -52,7 +60,10 @@ namespace ChessChallenge.Example
 			int sum = 0;
 
 			if (board.IsInCheckmate())
-				return mIsWhite == board.IsWhiteToMove ? int.MinValue : int.MaxValue;
+				return mIsWhite == board.IsWhiteToMove ? -kBigNum : kBigNum;
+
+			if (board.IsDraw())
+				return 0;
 
 			for (int i = 0; ++i < 7;)
 				sum += (board.GetPieceList((PieceType)i, mIsWhite).Count - board.GetPieceList((PieceType)i, !mIsWhite).Count) * kPieceValues[i];
