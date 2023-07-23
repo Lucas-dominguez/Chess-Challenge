@@ -1,4 +1,4 @@
-﻿#define DEBUG_TIMER
+﻿//#define DEBUG_TIMER
 using ChessChallenge.API;
 using System;
 using System.Linq;
@@ -7,7 +7,6 @@ public class MyBot : IChessBot
 {
 	//                     .  P    K    B    R    Q    K
 	int[] kPieceValues = { 0, 100, 300, 310, 500, 900, 10000 };
-	int kBigNum = 9999999;
 	int kMassiveNum = 99999999;
 
 #if DEBUG_TIMER
@@ -15,88 +14,64 @@ public class MyBot : IChessBot
 	int dTotalMsElapsed = 0;
 #endif
 
-	bool mIsWhite;
-	int mTeamMult;
-	Timer mTimer;
+	int mDepth;
+	Move mBestMove;
 
 	public Move Think(Board board, Timer timer)
 	{
 		Move[] legalMoves = board.GetLegalMoves();
-		mIsWhite = board.IsWhiteToMove;
-		mTeamMult = mIsWhite ? 1 : -1;
-		mTimer = timer;
+		mDepth = 5;
 
-		Move bestMove = legalMoves.MaxBy(move =>
-		{
-			board.MakeMove(move);
-			int eval = mTeamMult * EvaluateBoardMinimax(board, 4, -kMassiveNum, kMassiveNum, !mIsWhite);
-			board.UndoMove(move);
-			return eval;
-		});
+		EvaluateBoardNegaMax(board, mDepth, -kMassiveNum, kMassiveNum, board.IsWhiteToMove ? 1 : -1);
 
 #if DEBUG_TIMER
 		dNumMovesMade++;
 		dTotalMsElapsed += timer.MillisecondsElapsedThisTurn;
 		Console.WriteLine("My bot time average: {0}", (float)dTotalMsElapsed / dNumMovesMade);
 #endif
-		return bestMove;
+		return mBestMove;
 	}
 
-	int EvaluateBoardMinimax(Board board, int depth, int alpha, int beta, bool maximise)
+	int EvaluateBoardNegaMax(Board board, int depth, int alpha, int beta, int color)
 	{
 		Move[] legalMoves;
-
-		if (board.IsInCheckmate())
-			return board.IsWhiteToMove ? -kBigNum : kBigNum;
 
 		if (board.IsDraw())
 			return 0;
 
 		if (depth == 0 || (legalMoves = board.GetLegalMoves()).Length == 0)
-			return EvaluateBoard(board);
-
-		if(maximise)
 		{
-			int maxEval = -kBigNum;
-			foreach(Move move in legalMoves)
-			{
-				board.MakeMove(move);
-				int evaluation = EvaluateBoardMinimax(board, depth - 1, alpha, beta, !maximise);
-				board.UndoMove(move);
-				maxEval = Math.Max(maxEval, evaluation);
-				alpha = Math.Max(alpha, evaluation);
-				if(beta <= alpha)
-				{
-					break;
-				}
-			}
-			return maxEval;
+			// EVALUATE
+			int sum = 0;
+
+			if (board.IsInCheckmate())
+				return board.IsWhiteToMove ? -kMassiveNum : kMassiveNum;
+
+			for (int i = 0; ++i < 7;)
+				sum += (board.GetPieceList((PieceType)i, true).Count - board.GetPieceList((PieceType)i, false).Count) * kPieceValues[i];
+			// EVALUATE
+
+			return color * sum;
 		}
 
-		int minEval = kBigNum;
-		foreach (Move move in legalMoves)
+		// TREE SEARCH
+		int recordEval = -kMassiveNum;
+		foreach(Move move in legalMoves)
 		{
 			board.MakeMove(move);
-			int evaluation = EvaluateBoardMinimax(board, depth - 1, alpha, beta, !maximise);
+			int evaluation = -EvaluateBoardNegaMax(board, depth - 1, -beta, -alpha, -color);
 			board.UndoMove(move);
-			minEval = Math.Min(minEval, evaluation);
-			beta = Math.Min(beta, evaluation);
-			if (beta <= alpha)
+			
+			if(recordEval < evaluation)
 			{
-				break;
+				recordEval = evaluation;
+				if (depth == mDepth) mBestMove = move;
 			}
+			alpha = Math.Max(alpha, recordEval);
+			if (alpha >= beta) break;
 		}
+		// TREE SEARCH
 
-		return minEval;
-	}
-
-	int EvaluateBoard(Board board)
-	{
-		int sum = 0;
-
-		for (int i = 0; ++i < 7;)
-			sum += (board.GetPieceList((PieceType)i, true).Count - board.GetPieceList((PieceType)i, false).Count) * kPieceValues[i];
-
-		return sum;
+		return recordEval;
 	}
 }
