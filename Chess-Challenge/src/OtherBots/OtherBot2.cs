@@ -1,77 +1,115 @@
-﻿//#define DEBUG_TIMER
-using ChessChallenge.API;
+﻿using ChessChallenge.API;
 using System;
-using System.Linq;
-
+using System.Numerics;
+using System.Collections.Generic;
 public class OtherBot2 : IChessBot
 {
-	//                     .  P    K    B    R    Q    K
-	int[] kPieceValues = { 0, 100, 300, 310, 500, 900, 10000 };
-	int kMassiveNum = 99999999;
-
-#if DEBUG_TIMER
-	int dNumMovesMade = 0;
-	int dTotalMsElapsed = 0;
-#endif
-
-	int mDepth;
-	Move mBestMove;
-
-	public Move Think(Board board, Timer timer)
+	static int[] PieceValue = { 0, 100, 300, 300, 500, 1000, 0 };
+	static Dictionary<ulong, int> TTable = new Dictionary<ulong, int>();
+	static List<Move> OrderMoves(Move[] moves)
 	{
-		Move[] legalMoves = board.GetLegalMoves();
-		mDepth = 5;
-
-		EvaluateBoardNegaMax(board, mDepth, -kMassiveNum, kMassiveNum, board.IsWhiteToMove ? 1 : -1);
-
-#if DEBUG_TIMER
-		dNumMovesMade++;
-		dTotalMsElapsed += timer.MillisecondsElapsedThisTurn;
-		Console.WriteLine("My bot time average: {0}", (float)dTotalMsElapsed / dNumMovesMade);
-#endif
-		return mBestMove;
-	}
-
-	int EvaluateBoardNegaMax(Board board, int depth, int alpha, int beta, int color)
-	{
-		Move[] legalMoves;
-
-		if (board.IsDraw())
-			return 0;
-
-		if (depth == 0 || (legalMoves = board.GetLegalMoves()).Length == 0)
+		List<Move> orderedMoves = new List<Move>();
+		foreach (Move move in moves)
 		{
-			// EVALUATE
-			int sum = 0;
-
-			if (board.IsInCheckmate())
-				return board.IsWhiteToMove ? -kMassiveNum : kMassiveNum;
-
-			for (int i = 0; ++i < 7;)
-				sum += (board.GetPieceList((PieceType)i, true).Count - board.GetPieceList((PieceType)i, false).Count) * kPieceValues[i];
-			// EVALUATE
-
-			return color * sum;
+			if (move.IsCapture || move.IsPromotion)
+			{
+				orderedMoves.Insert(0, move);
+			}
+			else
+			{
+				orderedMoves.Add(move);
+			}
 		}
-
-		// TREE SEARCH
-		int recordEval = -kMassiveNum;
-		foreach(Move move in legalMoves)
+		return orderedMoves;
+	}
+	static int[] DistanceToEdge = { 0, 1, 2, 3, 3, 2, 1, 0 };
+	static Func<Square, int>[] PSQT = {
+									  sq => 0, //null
+                                      sq => sq.Rank*10-10+(sq.Rank==1?50:0)+(DistanceToEdge[sq.Rank]==3&&DistanceToEdge[sq.File]==3?30:0), //pawn
+                                      sq => (DistanceToEdge[sq.Rank]+DistanceToEdge[sq.File])*10-40, //knight
+                                      sq => (DistanceToEdge[sq.Rank]+DistanceToEdge[sq.File])*10-40, //bishop
+                                      sq => sq.Rank==6?10:0+((sq.Rank==0&&DistanceToEdge[sq.File]==3)?10:0), //rook
+                                      sq => (DistanceToEdge[sq.Rank]+DistanceToEdge[sq.File])*5-10, //queen
+                                      sq => (3-DistanceToEdge[sq.Rank]+3-DistanceToEdge[sq.File])*10-5-(sq.Rank>1?50:0) //king
+                                     };
+	static int Eval(Board board)
+	{
+		if (board.IsDraw()) { return 0; }
+		if (board.IsInCheckmate()) { return 320000 * (board.IsWhiteToMove ? 1 : -1); }
+		PieceList[] pieceList = board.GetAllPieceLists();
+		int material = 0;
+		int psqt = 0;
+		foreach (PieceList list in pieceList)
+		{
+			material += PieceValue[(int)list.TypeOfPieceInList] * list.Count * (list.IsWhitePieceList ? 1 : -1);
+		}
+		for (int i = 0; i < 64; i++)
+		{
+			Square sq = new Square(i);
+			Piece p = board.GetPiece(sq);
+			if (!p.IsWhite) sq = new Square(i ^ 56);
+			psqt += (PSQT[(int)p.PieceType](sq)) * (p.IsWhite ? 1 : -1);
+		}
+		return ((material + psqt) * 10 + board.GetLegalMoves().Length) * (board.IsWhiteToMove ? 1 : -1);
+	}
+	static int Max(int a, int b) { return a > b ? a : b; }
+	static int Search(Board board, int depth, int alpha, int beta)
+	{
+		if (depth == 0)
+		{
+			if (TTable.ContainsKey(board.ZobristKey))
+			{
+				return TTable[board.ZobristKey];
+			}
+			else
+			{
+				TTable.Add(board.ZobristKey, Eval(board));
+				return Eval(board);
+			}
+		}
+		Move[] moves = board.GetLegalMoves();
+		List<Move> orderedMoves = OrderMoves(moves);
+		foreach (Move move in orderedMoves)
 		{
 			board.MakeMove(move);
-			int evaluation = -EvaluateBoardNegaMax(board, depth - 1, -beta, -alpha, -color);
+			int CurrEval = -Search(board, depth - 1, -beta, -alpha);
 			board.UndoMove(move);
-			
-			if(recordEval < evaluation)
+			if (CurrEval >= beta)
 			{
-				recordEval = evaluation;
-				if (depth == mDepth) mBestMove = move;
+				return beta;
 			}
-			alpha = Math.Max(alpha, recordEval);
-			if (alpha >= beta) break;
+			alpha = Max(alpha, CurrEval);
 		}
-		// TREE SEARCH
-
-		return recordEval;
+		return alpha;
+	}
+	public Move Think(Board board, Timer timer)
+	{
+		Move[] moves = board.GetLegalMoves();
+		int MaxEval = -320001;
+		Move MaxMove = new Move();
+		int CurrDepth = 1;
+		Random rng = new();
+		int time = 500;// timer.MillisecondsRemaining / 50;
+		while (true)
+		{
+			foreach (Move move in moves)
+			{
+				board.MakeMove(move);
+				int CurrEval = -Search(board, CurrDepth, -320000, 320000);
+				if (MaxEval < CurrEval)
+				{
+					MaxEval = CurrEval;
+					MaxMove = move;
+				}
+				board.UndoMove(move);
+			}
+			if (timer.MillisecondsElapsedThisTurn > time)
+			{
+				if (MaxMove != Move.NullMove)
+					return MaxMove;
+				else return moves[rng.Next(moves.Length)];
+			}
+			CurrDepth++;
+		}
 	}
 }
