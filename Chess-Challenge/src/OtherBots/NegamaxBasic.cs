@@ -1,7 +1,6 @@
 ﻿//#define DEBUG_TIMER
 using ChessChallenge.API;
 using System;
-using System.Linq;
 
 public class NegamaxBasic : IChessBot
 {
@@ -20,7 +19,7 @@ public class NegamaxBasic : IChessBot
 	public Move Think(Board board, Timer timer)
 	{
 		Move[] legalMoves = board.GetLegalMoves();
-		mDepth = 5;
+		mDepth = 3;
 
 		EvaluateBoardNegaMax(board, mDepth, -kMassiveNum, kMassiveNum, board.IsWhiteToMove ? 1 : -1);
 
@@ -55,14 +54,14 @@ public class NegamaxBasic : IChessBot
 		}
 
 		// TREE SEARCH
-		int recordEval = -kMassiveNum;
-		foreach(Move move in legalMoves)
+		int recordEval = int.MinValue;
+		foreach (Move move in legalMoves)
 		{
 			board.MakeMove(move);
 			int evaluation = -EvaluateBoardNegaMax(board, depth - 1, -beta, -alpha, -color);
 			board.UndoMove(move);
-			
-			if(recordEval < evaluation)
+
+			if (recordEval < evaluation)
 			{
 				recordEval = evaluation;
 				if (depth == mDepth) mBestMove = move;
