@@ -1,5 +1,4 @@
 ﻿using ChessChallenge.Chess;
-using ChessChallenge.Example;
 using Raylib_cs;
 using System;
 using System.IO;
@@ -18,7 +17,13 @@ namespace ChessChallenge.Application
         {
             Human,
             MyBot,
-            EvilBot
+            NegamaxBasic,
+            MyBotV1,
+            MyBotV2,
+            MyBotV3,
+            OtherBot1,
+            OtherBot2,
+            OtherBot3
         }
 
         // Game state
@@ -207,8 +212,14 @@ namespace ChessChallenge.Application
             return type switch
             {
                 PlayerType.MyBot => new ChessPlayer(new MyBot(), type, GameDurationMilliseconds),
-                PlayerType.EvilBot => new ChessPlayer(new EvilBot(), type, GameDurationMilliseconds),
-                _ => new ChessPlayer(new HumanPlayer(boardUI), type)
+                PlayerType.NegamaxBasic => new ChessPlayer(new NegamaxBasic(), type, GameDurationMilliseconds),
+				PlayerType.MyBotV1 => new ChessPlayer(new MyBotV1(), type, GameDurationMilliseconds),
+				PlayerType.MyBotV2 => new ChessPlayer(new MyBotV2(), type, GameDurationMilliseconds),
+				PlayerType.MyBotV3 => new ChessPlayer(new MyBotV3(), type, GameDurationMilliseconds),
+				PlayerType.OtherBot1 => new ChessPlayer(new OtherBot1(), type, GameDurationMilliseconds),
+				PlayerType.OtherBot2 => new ChessPlayer(new OtherBot2(), type, GameDurationMilliseconds),
+				PlayerType.OtherBot3 => new ChessPlayer(new OtherBot3(), type, GameDurationMilliseconds),
+				_ => new ChessPlayer(new HumanPlayer(boardUI), type)
             };
         }
 
