@@ -19,7 +19,7 @@ public class MyBot : IChessBot
 	public Move Think(Board board, Timer timer)
 	{
 		Move[] legalMoves = board.GetLegalMoves();
-		mDepth = 3;
+		mDepth = 5;
 
 		EvaluateBoardNegaMax(board, mDepth, -kMassiveNum, kMassiveNum, board.IsWhiteToMove ? 1 : -1);
 

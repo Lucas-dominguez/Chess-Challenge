@@ -9,8 +9,8 @@ namespace ChessChallenge.Application
     {
         public static void DrawButtons(ChallengeController controller)
         {
-            Vector2 buttonPos = UIHelper.Scale(new Vector2(260, 70));
-            Vector2 buttonSize = UIHelper.Scale(new Vector2(240, 55));
+			Vector2 buttonPos = UIHelper.Scale(new Vector2(140, 70));
+			Vector2 buttonSize = UIHelper.Scale(new Vector2(240, 55));
             float spacing = buttonSize.Y * 1.2f;
             float breakSpacing = spacing * 0.6f;
 
@@ -21,7 +21,6 @@ namespace ChessChallenge.Application
                 var blackType = !controller.HumanWasWhiteLastGame ? ChallengeController.PlayerType.MyBot : ChallengeController.PlayerType.Human;
                 controller.StartNewGame(whiteType, blackType);
             }
-			buttonPos = UIHelper.Scale(new Vector2(140, 140));
 			if (NextButtonInRow("MyBot vs MyBot", ref buttonPos, spacing, buttonSize))
             {
                 controller.StartNewBotMatch(ChallengeController.PlayerType.MyBot, ChallengeController.PlayerType.MyBot);
@@ -38,7 +37,11 @@ namespace ChessChallenge.Application
 			{
 				controller.StartNewBotMatch(ChallengeController.PlayerType.MyBot, ChallengeController.PlayerType.MyBotV3);
 			}
-			buttonPos = UIHelper.Scale(new Vector2(400, 140));
+			buttonPos = UIHelper.Scale(new Vector2(400, 70));
+			if (NextButtonInRow("MyBot vs Stockfish", ref buttonPos, spacing, buttonSize))
+			{
+				controller.StartNewBotMatch(ChallengeController.PlayerType.MyBot, ChallengeController.PlayerType.Stockfish);
+			}
 			if (NextButtonInRow("MyBot vs OB1", ref buttonPos, spacing, buttonSize))
 			{
 				controller.StartNewBotMatch(ChallengeController.PlayerType.MyBot, ChallengeController.PlayerType.OtherBot1);
