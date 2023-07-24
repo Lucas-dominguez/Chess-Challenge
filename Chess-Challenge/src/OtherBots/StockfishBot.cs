@@ -4,7 +4,7 @@ using Stockfish.NET;
 
 public class StockfishBot : IChessBot
 {
-	const int STOCKFISH_LEVEL = 3;
+	const int STOCKFISH_LEVEL = 0;
 
 	IStockfish mStockFish;
 
@@ -13,7 +13,7 @@ public class StockfishBot : IChessBot
 		Stockfish.NET.Models.Settings stockfishSettings = new Stockfish.NET.Models.Settings();
 		stockfishSettings.SkillLevel = STOCKFISH_LEVEL;
 
-		mStockFish = new Stockfish.NET.Stockfish(@"resources\stockfish\stockfish12.exe");
+		mStockFish = new Stockfish.NET.Stockfish(@"resources\stockfish\stockfish12.exe", 2, stockfishSettings);
 	}
 
 	public Move Think(Board board, Timer timer)
