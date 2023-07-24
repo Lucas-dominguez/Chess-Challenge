@@ -1,4 +1,4 @@
-﻿//#define DEBUG_TIMER
+﻿#define DEBUG_TIMER
 using ChessChallenge.API;
 using System;
 
@@ -19,7 +19,7 @@ public class MyBot : IChessBot
 	public Move Think(Board board, Timer timer)
 	{
 		Move[] legalMoves = board.GetLegalMoves();
-		mDepth = 2;
+		mDepth = 6;
 
 		EvaluateBoardNegaMax(board, mDepth, -kMassiveNum, kMassiveNum, board.IsWhiteToMove ? 1 : -1);
 
@@ -54,6 +54,7 @@ public class MyBot : IChessBot
 		}
 
 		// TREE SEARCH
+		SortMoves(ref legalMoves);
 		int recordEval = int.MinValue;
 		foreach (Move move in legalMoves)
 		{
@@ -73,5 +74,19 @@ public class MyBot : IChessBot
 		// TREE SEARCH
 
 		return recordEval;
+	}
+
+	void SortMoves(ref Move[] moves)
+	{
+		Move temp;
+		for(int i = 1, j = 0; i < moves.Length; ++i)
+		{
+			if (moves[i].IsCapture || moves[i].IsPromotion)
+			{
+				temp = moves[j];
+				moves[j++] = moves[i];
+				moves[i] = temp;
+			}
+		}
 	}
 }
