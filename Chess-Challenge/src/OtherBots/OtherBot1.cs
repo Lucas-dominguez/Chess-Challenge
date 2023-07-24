@@ -1,227 +1,126 @@
-﻿using System;
+﻿using ChessChallenge.API;
+using System;
+using System.Numerics;
 using System.Collections.Generic;
 using System.Linq;
-using ChessChallenge.API;
-using Board = ChessChallenge.API.Board;
-using Move = ChessChallenge.API.Move;
 
 public class OtherBot1 : IChessBot
 {
-	int[] pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
-
-	double materialWeight = 1.0,
-		mobilityWeight = 0.5,
-		kingSafetyWeight = 0.3,
-		capturingWeight = 0.6,
-		distanceWeight = 0.4,
-		repetitionWeight = 0.5;
-
-
-	Queue<Move> previousMoves = new Queue<Move>();
-	Dictionary<ulong, (int score, Move bestMove, int depth)> transpositionTable = new Dictionary<ulong, (int score, Move bestMove, int depth)>();
-	public void AddMove(Move move)
-	{
-		previousMoves.Enqueue(move);
-		if (previousMoves.Count > 2) previousMoves.Dequeue();
-	}
-
+	private readonly int[] _pieceValues = { 0, 100, 300, 300, 500, 1000, 1073741823 };
+	private readonly Dictionary<ulong, int> _transpositionTable = new Dictionary<ulong, int>();
+	private bool _side;
 	public Move Think(Board board, Timer timer)
 	{
-		int maxDepth = 500;
-
-		Move bestMove = Move.NullMove;
-		int bestScore = int.MinValue;
-
-		List<Move> orderedMoves = OrderMoves(board.GetLegalMoves());
-
-		for (int depth = 1; depth <= maxDepth; depth++)
+		List<Move> moves = OrderMoves(board, board.GetLegalMoves());
+		if (board.PlyCount <= 1 && moves.Count == 20)
 		{
-			foreach (Move move in orderedMoves)
+			_side = board.IsWhiteToMove;
+		}
+		int maxEval = -int.MaxValue;
+		Move maxMove = Move.NullMove;
+		int currDepth = 1;
+		int time = timer.MillisecondsRemaining / 50;
+		while (true)
+		{
+			foreach (Move move in moves)
 			{
-				if (board.IsInCheckmate())
-				{
-					AddMove(move);
-					return move;
-				}
-
-				double weight = board.GetAllPieceLists().Sum(pl => pl.Count) <= 12 ? kingSafetyWeight : (board.GetAllPieceLists().Sum(pl => pl.Count) <= 24 ? mobilityWeight : materialWeight);
-
-				int score;
 				board.MakeMove(move);
-				if (transpositionTable.ContainsKey(board.ZobristKey))
+				int currEval = -NegaMax(board, currDepth, int.MinValue, int.MaxValue);
+				if (maxEval < currEval)
 				{
-					score = transpositionTable[board.ZobristKey].score;
-				}
-				else
-				{
-					score = (int)(EvaluatePiece(board, board.GetPiece(move.TargetSquare)) * weight) + NegaMax(board, maxDepth, int.MinValue, int.MinValue).Item2; // Use minimax for deeper evaluations
+					maxEval = currEval;
+					maxMove = move;
 				}
 				board.UndoMove(move);
+			}
 
-				if (score > bestScore)
+			if (timer.MillisecondsElapsedThisTurn > time)
+			{
+				if (maxMove != Move.NullMove)
 				{
-					bestScore = score;
-					bestMove = move;
+					return maxMove;
 				}
+				Random rng = new();
+				return moves[rng.Next(moves.Count)];
 			}
+			currDepth++;
 		}
-		AddMove(bestMove);
-		if (!orderedMoves.Contains(bestMove))
-		{
-			bestMove = orderedMoves[Random.Shared.Next(orderedMoves.Count)];
-		}
-		return bestMove;
+
 	}
-	private (Move, int) NegaMax(Board board, int depth, int alpha, int beta)
-	{
-		if (transpositionTable.ContainsKey(board.ZobristKey))
-		{
-			var entry = transpositionTable[board.ZobristKey];
-			if (entry.depth >= depth)
-			{
-				return (entry.bestMove, entry.score);
-			}
-		}
-		if (depth == 0 || board.IsInCheckmate())
-		{
-			int score = 0;
-
-			foreach (Piece piece in GetPieces(board))
-			{
-				score += EvaluatePiece(board, piece);
-			}
-
-			return (Move.NullMove, score);
-		}
-
-		Move bestMove = Move.NullMove;
-		int bestScore = int.MinValue;
-		List<Move> moves = OrderMoves(board.GetLegalMoves());
-
-		foreach (Move move in moves)
-		{
-			board.MakeMove(move);
-			int score = -NegaMax(board, depth - 1, -beta, -alpha).Item2; // Negate score and swap alpha and beta
-			board.UndoMove(move);
-
-			if (score > bestScore)
-			{
-				bestScore = score;
-				bestMove = move;
-			}
-
-			alpha = Math.Max(alpha, score); // Update alpha with max value
-
-			if (alpha >= beta)
-				break;
-		}
-
-		transpositionTable[board.ZobristKey] = (bestScore, bestMove, depth);
-
-		return (bestMove, bestScore);
-	}
-
-	private List<Move> OrderMoves(Move[] moves)
+	List<Move> OrderMoves(Board board, Move[] moves)
 	{
 		List<Move> orderedMoves = new List<Move>();
 		foreach (Move move in moves)
 		{
-			if (move.IsCapture)
+			int seeValue = See(board, move);
+			if (seeValue > 0)
 			{
-				orderedMoves.Insert(0, move);
+				orderedMoves.Insert(0, move); // good capture
+			}
+			else if (seeValue == 0)
+			{
+				orderedMoves.Insert(orderedMoves.Count / 2, move); // equal capture
 			}
 			else
 			{
-				orderedMoves.Add(move);
+				orderedMoves.Add(move); // bad capture or quiet move
 			}
 		}
-
 		return orderedMoves;
 	}
-
-	private int EvaluatePiece(Board board, Piece piece)
+	int EvaluateBoard(Board board)
 	{
-		int materialScore = 0;
-		int mobilityScore = 0;
-		int kingSafetyScore = 0;
-		int capturingScore = 0;
-		int distanceScore = 0;
-		int repetitionScore = 0;
-
-		int pieceValue = pieceValues[(int)piece.PieceType];
-		materialScore += GetPieceCount(board, piece.PieceType, true) * pieceValue;
-		materialScore -= GetPieceCount(board, piece.PieceType, false) * pieceValue;
-
-		foreach (Move move in board.GetLegalMoves())
+		if (board.IsDraw())
 		{
-			if (move.StartSquare == piece.Square)
+			return 0;
+		}
+
+		if (board.IsInCheckmate())
+		{
+			return int.MaxValue * (_side ? 1 : -1);
+		}
+		PieceList[] pieceList = board.GetAllPieceLists();
+		int material = 0;
+		foreach (PieceList list in pieceList)
+		{
+			material += _pieceValues[(int)list.TypeOfPieceInList] * list.Count * (list.IsWhitePieceList ? 1 : -1);
+		}
+		return ((material) * 10 + board.GetLegalMoves().Length) * (_side ? 1 : -1);
+	}
+	int NegaMax(Board board, int depth, int alpha, int beta)
+	{
+		if (depth == 0)
+		{
+			if (_transpositionTable.ContainsKey(board.ZobristKey))
 			{
-				mobilityScore += (piece.IsWhite ? 1 : -1) * pieceValue;
+				return _transpositionTable[board.ZobristKey];
 			}
+			int eval = EvaluateBoard(board);
+			_transpositionTable.Add(board.ZobristKey, eval);
+			return eval;
 		}
-
-		if (board.IsInCheck())
+		Move[] moves = board.GetLegalMoves();
+		List<Move> orderedMoves = OrderMoves(board, moves);
+		foreach (Move move in orderedMoves)
 		{
-			kingSafetyScore += board.IsWhiteToMove ? -1 : 1;
-		}
-
-		foreach (Move move in board.GetLegalMoves())
-		{
-			if (move.IsCapture && move.StartSquare == piece.Square)
+			board.MakeMove(move);
+			int currEval = -NegaMax(board, depth - 1, -beta, -alpha);
+			board.UndoMove(move);
+			if (currEval >= beta)
 			{
-				Piece capturedPiece = board.GetPiece(move.TargetSquare);
-				int capturedPieceValue = pieceValues[(int)capturedPiece.PieceType];
-				capturingScore += capturedPieceValue;
+				return beta;
 			}
+			alpha = Math.Max(alpha, currEval);
 		}
-
-		foreach (Move move in board.GetLegalMoves())
-		{
-			if (move.StartSquare == piece.Square)
-			{
-				int distance = Math.Abs(move.StartSquare.File - move.TargetSquare.File) + Math.Abs(move.StartSquare.Rank - move.TargetSquare.Rank);
-				distanceScore += distance;
-			}
-		}
-
-		foreach (Move previousMove in previousMoves)
-		{
-			if (previousMove.StartSquare == piece.Square)
-			{
-				repetitionScore++;
-			}
-		}
-
-		int finalScore = (int)(materialWeight * materialScore +
-							  mobilityWeight * mobilityScore +
-							  kingSafetyWeight * kingSafetyScore +
-							  capturingWeight * capturingScore +
-							  distanceWeight * distanceScore +
-							  repetitionWeight * repetitionScore);
-
-		return finalScore;
+		return alpha;
 	}
 
-	private int GetPieceCount(Board board, PieceType pieceType, bool isWhite)
+	int See(Board board, Move move)
 	{
-		int count = 0;
-		foreach (var pieceList in board.GetAllPieceLists())
-		{
-			foreach (var piece in pieceList)
-			{
-				if (piece.IsWhite == isWhite && piece.PieceType == pieceType)
-				{
-					count++;
-				}
-			}
-		}
-		return count;
+		if (!move.IsCapture) return 0;
+		int captureValue = _pieceValues[(int)board.GetPiece(move.TargetSquare).PieceType];
+		int pieceValue = _pieceValues[(int)board.GetPiece(move.StartSquare).PieceType];
+		return pieceValue - captureValue;
 	}
 
-	private IEnumerable<Piece> GetPieces(Board board)
-	{
-		return board.GetAllPieceLists()
-					.SelectMany(pieceList => pieceList)
-					.Where(piece => true);
-	}
 }
