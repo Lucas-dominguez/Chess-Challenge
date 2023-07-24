@@ -33,7 +33,6 @@ public class NegamaxBasic : IChessBot
 
 	int EvaluateBoardNegaMax(Board board, int depth, int alpha, int beta, int color)
 	{
-		string indent = new string(' ', 4 * (3 - depth));
 		Move[] legalMoves;
 
 		if (board.IsDraw())
