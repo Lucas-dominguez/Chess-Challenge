@@ -1,8 +1,6 @@
 ﻿using System;
-using Stockfish;
 using ChessChallenge.API;
 using Stockfish.NET;
-using System.Runtime.CompilerServices;
 
 public class StockfishBot : IChessBot
 {
