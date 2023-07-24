@@ -21,7 +21,7 @@ public class NegamaxBasic : IChessBot
 		Move[] legalMoves = board.GetLegalMoves();
 		mDepth = 3;
 
-		EvaluateBoardNegaMax(board, mDepth, int.MinValue, int.MaxValue, board.IsWhiteToMove ? 1 : -1);
+		EvaluateBoardNegaMax(board, mDepth, -kMassiveNum, kMassiveNum, board.IsWhiteToMove ? 1 : -1);
 
 #if DEBUG_TIMER
 		dNumMovesMade++;
@@ -44,7 +44,7 @@ public class NegamaxBasic : IChessBot
 			int sum = 0;
 
 			if (board.IsInCheckmate())
-				return -kMassiveNum;
+				return -9999999;
 
 			for (int i = 0; ++i < 7;)
 				sum += (board.GetPieceList((PieceType)i, true).Count - board.GetPieceList((PieceType)i, false).Count) * kPieceValues[i];

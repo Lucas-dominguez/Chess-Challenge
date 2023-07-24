@@ -19,7 +19,7 @@ public class MyBot : IChessBot
 	public Move Think(Board board, Timer timer)
 	{
 		Move[] legalMoves = board.GetLegalMoves();
-		mDepth = 5;
+		mDepth = 2;
 
 		EvaluateBoardNegaMax(board, mDepth, -kMassiveNum, kMassiveNum, board.IsWhiteToMove ? 1 : -1);
 
@@ -44,7 +44,7 @@ public class MyBot : IChessBot
 			int sum = 0;
 
 			if (board.IsInCheckmate())
-				return board.IsWhiteToMove ? -kMassiveNum : kMassiveNum;
+				return -9999999;
 
 			for (int i = 0; ++i < 7;)
 				sum += (board.GetPieceList((PieceType)i, true).Count - board.GetPieceList((PieceType)i, false).Count) * kPieceValues[i];
@@ -64,7 +64,8 @@ public class MyBot : IChessBot
 			if (recordEval < evaluation)
 			{
 				recordEval = evaluation;
-				if (depth == mDepth) mBestMove = move;
+				if (depth == mDepth)
+					mBestMove = move;
 			}
 			alpha = Math.Max(alpha, recordEval);
 			if (alpha >= beta) break;
