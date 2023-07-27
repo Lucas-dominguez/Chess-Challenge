@@ -182,9 +182,9 @@ public class OtherBot3 : IChessBot
 		return res;
 	}
 
-	int GetPieceValue(Square sq)
+	int GetPieceValue(PieceType type)
 	{
-		return pieceValues[(int)board.GetPiece(sq).PieceType - 1];
+		return pieceValues[(int)type - 1];
 	}
 
 	ulong getFileBitboard(int pos) => aFile >> (pos % 8);
@@ -198,8 +198,7 @@ public class OtherBot3 : IChessBot
 			Move move = moves[i];
 			if (move.IsCapture)
 			{
-				moveScores[i] += GetPieceValue(move.TargetSquare) - GetPieceValue(move.StartSquare) / 10;
-
+				moveScores[i] += GetPieceValue(move.CapturePieceType) - GetPieceValue(move.MovePieceType) / 10;
 			}
 
 			// negate so that the moves get sorted best to worst
@@ -222,7 +221,7 @@ public class OtherBot3 : IChessBot
 
 	bool ShouldFinishSearch()
 	{
-		return timer.MillisecondsElapsedThisTurn > 100;
+		return timer.MillisecondsElapsedThisTurn > 300;
 	}
 
 

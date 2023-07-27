@@ -34,7 +34,7 @@ public class MyBotV1 : IChessBot
 	int mPhase = 0;
 	Move mBestMove;
 
-	public MyBot()
+	public MyBotV1()
 	{
 		kBlackPTables = new UInt64[kWhitePTables.Length];
 		for (int i = 0; i < kWhitePTables.Length; ++i)
