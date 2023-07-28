@@ -1,5 +1,5 @@
 ﻿//#define DEBUG_TIMER
-#define DEBUG_TREE_SEARCH
+//#define DEBUG_TREE_SEARCH
 
 
 
