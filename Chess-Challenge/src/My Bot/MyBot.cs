@@ -6,7 +6,6 @@
 
 using ChessChallenge.API;
 using System;
-using System.Drawing;
 using System.Linq;
 using System.Numerics;
 
@@ -127,7 +126,6 @@ public class MyBot : IChessBot
 	/// </summary>
 	public Move Think(Board board, Timer timer)
 	{
-		Move[] legalMoves = board.GetLegalMoves();
 		mDepth = 1;
 
 #if DEBUG_TREE_SEARCH
@@ -135,7 +133,7 @@ public class MyBot : IChessBot
 #endif
 		int msRemain = timer.MillisecondsRemaining;
 		if (msRemain < 200)
-			return legalMoves[0];
+			return board.GetLegalMoves()[0];
 		while (timer.MillisecondsElapsedThisTurn < (msRemain / 200))
 			EvaluateBoardNegaMax(board, ++mDepth, -kMassiveNum, kMassiveNum, board.IsWhiteToMove ? 1 : -1);
 		
