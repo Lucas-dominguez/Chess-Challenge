@@ -44,8 +44,6 @@ public class OtherBot3 : IChessBot
 			depth++;
 			bestMoveValueThisIteration = NegaMax(depth, NEGATIVE_INFINITY, POSITIVE_INFINITY);
 		}
-		Console.WriteLine("Depth: " + depth);
-		Console.WriteLine("Eval: " + bestMoveValue.value);
 		return bestMoveValue.move;
 	}
 

@@ -6,30 +6,10 @@
 
 using ChessChallenge.API;
 using System;
+using System.Drawing;
 using System.Linq;
 using System.Numerics;
 
-
-
-
-
-/// <summary>
-/// Transposition table entry. Stores best move and evaluation for a board.
-/// </summary>
-struct TEntry
-{
-	public ulong mKey;
-	public Move mBestMove;
-	public int mDepth, mEval, mEvalType;
-	public TEntry(ulong key, Move move, int depth, int eval, int evalType)
-	{
-		mKey = key;
-		mBestMove = move;
-		mDepth = depth;
-		mEval = eval;
-		mEvalType = evalType;
-	}
-}
 
 
 
@@ -39,6 +19,32 @@ struct TEntry
 /// </summary>
 public class MyBot : IChessBot
 {
+	#region rTypes
+
+	/// <summary>
+	/// Transposition table entry. Stores best move and evaluation for a board.
+	/// </summary>
+	struct TEntry
+	{
+		public ulong mKey;
+		public Move mBestMove;
+		public int mDepth, mEval, mEvalType;
+		public TEntry(ulong key, Move move, int depth, int eval, int evalType)
+		{
+			mKey = key;
+			mBestMove = move;
+			mDepth = depth;
+			mEval = eval;
+			mEvalType = evalType;
+		}
+	}
+
+	#endregion rTypes
+
+
+
+
+
 	#region rConstants
 
 	UInt64[] kWhitePTables = {
@@ -60,7 +66,7 @@ public class MyBot : IChessBot
 	//                     .  P    K    B    R    Q    K
 	int[] kPieceValues = { 0, 100, 300, 310, 500, 900, 10000 };
 	int kMassiveNum = 99999999;
-	const int kTTSize = 4194301;
+	const int kTTSize = 8333329;
 
 	#endregion rConstants
 
@@ -127,13 +133,11 @@ public class MyBot : IChessBot
 #if DEBUG_TREE_SEARCH
 		dNumPositionsEvaluated = 0;
 #endif
-
-		for(; mDepth < 50; mDepth++)
-		{
-			EvaluateBoardNegaMax(board, mDepth, -kMassiveNum, kMassiveNum, board.IsWhiteToMove ? 1 : -1);
-			if (timer.MillisecondsElapsedThisTurn > 100)
-				break;
-		}
+		int msRemain = timer.MillisecondsRemaining;
+		if (msRemain < 200)
+			return legalMoves[0];
+		while (timer.MillisecondsElapsedThisTurn < (msRemain / 200))
+			EvaluateBoardNegaMax(board, ++mDepth, -kMassiveNum, kMassiveNum, board.IsWhiteToMove ? 1 : -1);
 		
 
 #if DEBUG_TIMER
@@ -173,10 +177,10 @@ public class MyBot : IChessBot
 		TEntry entry = mTranspositionTable[boardKey % kTTSize];
 		if(entry.mKey == boardKey && entry.mDepth >= depth)
 		{
-			//if (entry.mEvalType == 0) return entry.mEval; // Exact
-			//else if (entry.mEvalType == 1) alpha = Math.Max(alpha, entry.mEval); // Lower bound
-			//else if(entry.mEvalType == 2) beta = Math.Min(beta, entry.mEval); // Upper bound
-			//if (alpha >= beta) return entry.mEval;
+			if (entry.mEvalType == 0) return entry.mEval; // Exact
+			else if (entry.mEvalType == 1) alpha = Math.Max(alpha, entry.mEval); // Lower bound
+			else if (entry.mEvalType == 2) beta = Math.Min(beta, entry.mEval); // Upper bound
+			if (alpha >= beta) return entry.mEval;
 		}
 
 		// Heuristic evaluation
