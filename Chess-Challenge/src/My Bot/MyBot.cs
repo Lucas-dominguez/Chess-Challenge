@@ -92,6 +92,7 @@ public class MyBot : IChessBot
 	#region rMembers
 
 	int mDepth;
+	Board mBoard;
 	Move mBestMove;
 	TEntry[] mTranspositionTable = new TEntry[kTTSize];
 
@@ -127,15 +128,16 @@ public class MyBot : IChessBot
 	public Move Think(Board board, Timer timer)
 	{
 		mDepth = 1;
+		mBoard = board;
 
 #if DEBUG_TREE_SEARCH
 		dNumPositionsEvaluated = 0;
 #endif
 		int msRemain = timer.MillisecondsRemaining;
 		if (msRemain < 200)
-			return board.GetLegalMoves()[0];
+			return mBoard.GetLegalMoves()[0];
 		while (timer.MillisecondsElapsedThisTurn < (msRemain / 200))
-			EvaluateBoardNegaMax(board, ++mDepth, -kMassiveNum, kMassiveNum, board.IsWhiteToMove ? 1 : -1);
+			EvaluateBoardNegaMax(++mDepth, -kMassiveNum, kMassiveNum, mBoard.IsWhiteToMove ? 1 : -1);
 		
 
 #if DEBUG_TIMER
@@ -157,19 +159,19 @@ public class MyBot : IChessBot
 	/// <summary>
 	/// Recursive search of given board position.
 	/// </summary>
-	int EvaluateBoardNegaMax(Board board, int depth, int alpha, int beta, int color)
+	int EvaluateBoardNegaMax(int depth, int alpha, int beta, int color)
 	{
-		ulong boardKey = board.ZobristKey;
-		Move[] legalMoves = board.GetLegalMoves();
+		ulong boardKey = mBoard.ZobristKey;
+		Move[] legalMoves = mBoard.GetLegalMoves();
 		float alphaOrig = alpha;
 		Move move, bestMove = Move.NullMove;
 
 		// Check for definite evaluations.
-		if (board.IsRepeatedPosition() || board.IsInsufficientMaterial() || board.FiftyMoveCounter >= 100)
+		if (mBoard.IsRepeatedPosition() || mBoard.IsInsufficientMaterial() || mBoard.FiftyMoveCounter >= 100)
 			return 0;
 
 		if (legalMoves.Length == 0)
-			return board.IsInCheck() ? -depth-9999999 : 0;
+			return mBoard.IsInCheck() ? -depth-9999999 : 0;
 
 		// Search transposition table for this board.
 		TEntry entry = mTranspositionTable[boardKey % kTTSize];
@@ -187,7 +189,7 @@ public class MyBot : IChessBot
 #if DEBUG_TREE_SEARCH
 			dNumPositionsEvaluated++;
 #endif
-			return color * (EvalColor(board, true) - EvalColor(board, false));
+			return color * (EvalColor(true) - EvalColor(false));
 		}
 
 		// Sort Moves
@@ -208,9 +210,9 @@ public class MyBot : IChessBot
 		for (int i = 0; i < legalMoves.Length; ++i)
 		{
 			move = legalMoves[moveIndices[i]];
-			board.MakeMove(move);
-			int evaluation = -EvaluateBoardNegaMax(board, depth - 1, -beta, -alpha, -color);
-			board.UndoMove(move);
+			mBoard.MakeMove(move);
+			int evaluation = -EvaluateBoardNegaMax(depth - 1, -beta, -alpha, -color);
+			mBoard.UndoMove(move);
 
 			if (recordEval < evaluation)
 			{
@@ -236,14 +238,14 @@ public class MyBot : IChessBot
 	/// <summary>
 	/// Evaluate the board for a given color.
 	/// </summary>
-	int EvalColor(Board board, bool isWhite)
+	int EvalColor(bool isWhite)
 	{
-		int phase = board.PlyCount > 20 ? 48 : 0;
+		int phase = mBoard.PlyCount > 20 ? 48 : 0;
 		UInt64[] PTable = isWhite ? kWhitePTables : kBlackPTables;
 		int sum = 0;
 		for(int i = 1; i < 7; ++i)
 		{
-			ulong pieceBitBoard = board.GetPieceBitboard((PieceType)i, isWhite);
+			ulong pieceBitBoard = mBoard.GetPieceBitboard((PieceType)i, isWhite);
 			sum += (kPieceValues[i] - 121) * BitOperations.PopCount(pieceBitBoard);
 			for(int b = 0; b < 8; ++b)
 				sum += BitOperations.PopCount(pieceBitBoard & PTable[(i - 1) * 8 + b + phase]) * (1 << b);
