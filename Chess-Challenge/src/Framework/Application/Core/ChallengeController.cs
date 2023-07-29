@@ -45,6 +45,7 @@ namespace ChessChallenge.Application
         // Bot match state
         readonly string[] botMatchStartFens;
         int botMatchGameIndex;
+        int[] fenOrdering;
         public BotMatchStats BotStatsA { get; private set; }
         public BotMatchStats BotStatsB {get;private set;}
         bool botAPlaysWhite;
@@ -77,8 +78,10 @@ namespace ChessChallenge.Application
             BotStatsB = new BotMatchStats("IBot");
             botMatchStartFens = FileHelper.ReadResourceFile("Fens.txt").Split('\n').Where(fen => fen.Length > 0).ToArray();
             botTaskWaitHandle = new AutoResetEvent(false);
+			fenOrdering = Enumerable.Range(0, botMatchStartFens.Length).ToArray();
+			fenOrdering = fenOrdering.OrderBy(x => rng.Next()).ToArray();
 
-            StartNewGame(PlayerType.Human, PlayerType.MyBot);
+			StartNewGame(PlayerType.Human, PlayerType.MyBot);
         }
 
         public void StartNewGame(PlayerType whiteType, PlayerType blackType)
@@ -100,7 +103,7 @@ namespace ChessChallenge.Application
             board = new Board();
             bool isGameWithHuman = whiteType is PlayerType.Human || blackType is PlayerType.Human;
             int fenIndex = isGameWithHuman ? 0 : botMatchGameIndex / 2;
-            board.LoadPosition(botMatchStartFens[fenIndex]);
+            board.LoadPosition(botMatchStartFens[fenOrdering[fenIndex]]);
 
             // Player Setup
             PlayerWhite = CreatePlayer(whiteType);
