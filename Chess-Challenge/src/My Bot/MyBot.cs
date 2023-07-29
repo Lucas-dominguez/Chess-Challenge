@@ -165,6 +165,7 @@ public class MyBot : IChessBot
 		Move[] legalMoves = mBoard.GetLegalMoves();
 		float alphaOrig = alpha;
 		Move move, bestMove = Move.NullMove;
+		int recordEval = int.MinValue;
 
 		// Check for definite evaluations.
 		if (mBoard.IsRepeatedPosition() || mBoard.IsInsufficientMaterial() || mBoard.FiftyMoveCounter >= 100)
@@ -184,12 +185,14 @@ public class MyBot : IChessBot
 		}
 
 		// Heuristic evaluation
-		if (depth == 0)
+		if (depth <= 0)
 		{
 #if DEBUG_TREE_SEARCH
 			dNumPositionsEvaluated++;
 #endif
-			return color * (EvalColor(true) - EvalColor(false));
+			recordEval = color * (EvalColor(true) - EvalColor(false));
+			if (recordEval >= beta || depth <= -4) return recordEval;
+			alpha = Math.Max(alpha, recordEval);
 		}
 
 		// Sort Moves
@@ -206,10 +209,10 @@ public class MyBot : IChessBot
 		Array.Sort(moveIndices, (x, y) => { return moveScores[y] - moveScores[x]; });
 
 		// Tree search
-		int recordEval = int.MinValue;
 		for (int i = 0; i < legalMoves.Length; ++i)
 		{
 			move = legalMoves[moveIndices[i]];
+			if (depth <= 0 && !move.IsCapture) continue; // Only search captures in qsearch
 			mBoard.MakeMove(move);
 			int evaluation = -EvaluateBoardNegaMax(depth - 1, -beta, -alpha, -color);
 			mBoard.UndoMove(move);
@@ -228,7 +231,10 @@ public class MyBot : IChessBot
 		// Store in transposition table
 		int ttEntryType = recordEval <= alphaOrig ? 2 :
 						  recordEval >= beta ? 1 : 0;
-		mTranspositionTable[boardKey % kTTSize] = new TEntry(boardKey, bestMove, depth, recordEval, ttEntryType);
+		mTranspositionTable[boardKey % kTTSize] = new TEntry(boardKey, bestMove, depth, recordEval, 
+			recordEval <= alphaOrig ? 2 :
+			recordEval >= beta ? 1 :
+			0);
 
 		return recordEval;
 	}
