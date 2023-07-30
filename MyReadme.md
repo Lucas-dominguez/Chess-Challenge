@@ -15,5 +15,6 @@ Use algo **Negascout** (variant of negamax/minamax) with :
 Optimal depth -> 6 (1s by move)
 
 ## Todo
-Encode late game square values with midgame, to keep in token limit
-Search for differents depths
+- Encode late game square values with midgame, to keep in token limit
+- Search for differents depths
+- Quienscence
