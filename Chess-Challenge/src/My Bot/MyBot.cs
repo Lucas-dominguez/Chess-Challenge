@@ -62,8 +62,12 @@ public class MyBot : IChessBot
 	};
 	UInt64[] kBlackPTables;
 
-	//                     .  P    K    B    R    Q    K
-	int[] kPieceValues = { 0, 100, 300, 310, 500, 900, 10000 };
+
+	//                     P    N    B    R    Q    K
+	int[] kPieceValues = { 100, 300, 310, 500, 900,   0,
+						   110, 270, 290, 550,1000,   0 };
+	int[] kPiecePhase = {    0,   1,   1,   2,   4,   0 };
+
 	int kMassiveNum = 99999999;
 	const int kTTSize = 8333329;
 
@@ -237,25 +241,32 @@ public class MyBot : IChessBot
 		return recordEval;
 	}
 
-
-
 	/// <summary>
 	/// Evaluate the board for a given color.
 	/// </summary>
 	int EvalColor(bool isWhite)
 	{
-		int phase = mBoard.PlyCount > 20 ? 48 : 0;
 		UInt64[] PTable = isWhite ? kWhitePTables : kBlackPTables;
-		int sum = 0;
-		for(int i = 1; i < 7; ++i)
+
+		int phase = 0;
+		int sumMg = 0;
+		int sumEg = 0;
+
+		for(int i = 0; i < 6; ++i)
 		{
-			ulong pieceBitBoard = mBoard.GetPieceBitboard((PieceType)i, isWhite);
-			sum += (kPieceValues[i] - 121) * BitOperations.PopCount(pieceBitBoard);
-			for(int b = 0; b < 8; ++b)
-				sum += BitOperations.PopCount(pieceBitBoard & PTable[(i - 1) * 8 + b + phase]) * (1 << b);
+			ulong pieceBitBoard = mBoard.GetPieceBitboard((PieceType)(i+1), isWhite);
+			int popcount = BitOperations.PopCount(pieceBitBoard);
+			phase += kPiecePhase[i] * popcount;
+			sumMg += (kPieceValues[i] - 121) * popcount;
+			sumEg += (kPieceValues[i + 6] - 121) * popcount;
+			for (int b = 0; b < 8; ++b)
+			{
+				sumMg += BitOperations.PopCount(pieceBitBoard & PTable[i * 8 + b]) * (1 << b);
+				sumEg += BitOperations.PopCount(pieceBitBoard & PTable[i * 8 + b + 48]) * (1 << b);
+			}
 		}
 
-		return sum;
+		return sumMg * phase + sumEg * (12-phase);
 	}
 
 	#endregion rThinking
