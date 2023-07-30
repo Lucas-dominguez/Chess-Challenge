@@ -7,7 +7,7 @@ public class MyBot : IChessBot
 {
     //r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1
     //Depth=9 Nb move checks : 25 765 376 Nb positions saved : 1 791 464 -> Move: 'e2a6' = 225 -> 60s
-    //Depth=8 Nb move checks : 2 411 306 Nb positions saved : 709179 -> Move: 'e2a6' = -110 -> 15.9s
+    //Depth=8 Nb move checks : 2 411 306 Nb positions saved : 709179 -> Move: 'e2a6' = -110 -> 12.2s
     //Depth=7 Nb move checks : 1 890 098 Nb positions saved : 107476 -> Move: 'e2a6' = 225 -> 5.6s
     //Depth=6 Nb move checks : 153 626 Nb positions saved : 42034 -> Move: 'e2a6' = -100 -> 1s
     //Depth=5 Nb move checks : 107 362 Nb positions saved : 6107 -> Move: 'd5e6' = 315 -> 0.4s
@@ -26,6 +26,7 @@ public class MyBot : IChessBot
 
     // List of all prefered possition : index of value above coded in an 6*4 bit int for each case
     // King|Queen|Rook|Bishop|Knight|Pawn
+    // from https://github.com/lhartikk/simple-chess-ai/blob/master/script.js 
     int[] bestPositions =
                        {0x236306, 0x146416, 0x146426, 0x56426, 0x56426, 0x146426, 0x146416, 0x236306,
                         0x24741e, 0x16863e, 0x16866e, 0x6866e, 0x6866e, 0x16866e, 0x16863e, 0x24741e,
@@ -50,18 +51,18 @@ public class MyBot : IChessBot
         if (timer.MillisecondsRemaining < 10000) //If 10s left -> aggressif quick mode
             MAX_DEPTH = 5;
         Move bestMove = Move.NullMove;
-        int bestScore = applyNegamaxOnmoves(MAX_DEPTH, -25000, 25000, board.IsWhiteToMove ? 1 : -1, ref bestMove);//- INF, +INF
+        int bestScore = applyNegascoutOnmoves(MAX_DEPTH, -25000, 25000, board.IsWhiteToMove ? 1 : -1, ref bestMove);//- INF, +INF
         Console.WriteLine("Depth=" + MAX_DEPTH + " move n°" + board.PlyCount + " checks : " + count + " Nb positions saved : " + transposition.Count + " -> " + bestMove + " = " + bestScore);
         return bestMove;
     }
 
-    //Test with minimax, negamax, negascout
-    int applyNegamaxOnmoves(int depth, int alpha, int beta, int color, ref Move pv)
+    //Test with minimax, negamaw -> negascout was the most quick and strong.
+    //inspired by https://rustic-chess.org/search/ordering/how.html
+    int applyNegascoutOnmoves(int depth, int alpha, int beta, int color, ref Move pv)
     {
+        bool quiencense = depth <= 0;
         int alphaOrigin = alpha;
         bool dopv = false;
-        if (board.PlyCount >= 6000 || depth <= 0) //max ply
-            return color * (evaluateBoardForColor(true) - evaluateBoardForColor(false));
 
         if (transposition.TryGetValue(board.ZobristKey, out MyMove? ttMove))
         {
@@ -81,15 +82,22 @@ public class MyBot : IChessBot
                 if (alpha >= beta) return ttMove.value;
             }
         }
+        int bestMoveValue = -25000;
+        if (quiencense)
+        {
+            bestMoveValue = color * (evaluateBoardForColor(true) - evaluateBoardForColor(false));
+            if(bestMoveValue > beta) return bestMoveValue;
+            alpha = Math.Max(alpha, bestMoveValue);
+        }
 
-        Span<Move> stackMove = stackalloc Move[400];//generate moves, 400=upper max movement possible for a turn
-        board.GetLegalMovesNonAlloc(ref stackMove);
+        //Span<Move> stackMove = stackalloc Move[400];//generate moves, 400=upper max movement possible for a turn
+        //board.GetLegalMovesNonAlloc(ref stackMove);
+        var stackMove = board.GetLegalMoves(quiencense);
         var moves = new List<MyMove>();
         foreach (Move m in stackMove) moves.Add(new MyMove(m));
         scoreMoves(moves, ttMove);//Apply a sort score to all moves
 
         MyMove bestMove = new MyMove(Move.NullMove);
-        int bestMoveValue = -25000;
 
         for (int i = 0; i < moves.Count; i++)
         {
@@ -104,11 +112,11 @@ public class MyBot : IChessBot
             int currentScore = 0; //DRAW score
             if (!board.IsDraw())
             {
-                if (!dopv) currentScore = -applyNegamaxOnmoves(depth - 1, -beta, -alpha, -color, ref node_pv);
+                if (!dopv) currentScore = -applyNegascoutOnmoves(depth - 1, -beta, -alpha, -color, ref node_pv);
                 else
                 {
-                    currentScore = -applyNegamaxOnmoves(depth - 1, -alpha - 1, -alpha, -color, ref node_pv);
-                    if (currentScore > alpha && currentScore < beta) currentScore = -applyNegamaxOnmoves(depth - 1, -beta, -alpha, -color, ref node_pv);
+                    currentScore = -applyNegascoutOnmoves(depth - 1, -alpha - 1, -alpha, -color, ref node_pv);
+                    if (currentScore > alpha && currentScore < beta) currentScore = -applyNegascoutOnmoves(depth - 1, -beta, -alpha, -color, ref node_pv);
                 }
             }
             board.UndoMove(currentMove.move);
@@ -133,11 +141,11 @@ public class MyBot : IChessBot
                 break;
             }
         }
-        if (moves.Count == 0)
+        if (!quiencense && moves.Count == 0)
         {
             if (board.IsInCheck())
                 return -24000 + board.PlyCount; //we are checkmate
-            return -1000;//-24000; //stalemate
+            return 0; //stalemate
         }
         if (bestMoveValue >= beta) bestMove.flag = 0;//lowerbound
         else if (bestMoveValue <= alphaOrigin) bestMove.flag = 1;//upperbound
@@ -197,7 +205,7 @@ public class MyBot : IChessBot
             move.sortScore = value;
         }
     }
-    class MyMove
+    class MyMove //also tt entry
     {
         public Move move;
         public long sortScore;
