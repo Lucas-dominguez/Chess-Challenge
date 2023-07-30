@@ -196,21 +196,19 @@ public class MyBot : IChessBot
 
 		// Sort Moves
 		int[] moveScores = new int[legalMoves.Length];
-		int[] moveIndices = new int[legalMoves.Length];
 		for (int i = 0; i < legalMoves.Length; ++i)
 		{
 			move = legalMoves[i];
-			moveIndices[i] = i;
-			moveScores[i] = move == entry.mBestMove ? 1000000 :
+			moveScores[i] = -(move == entry.mBestMove ? 1000000 :
 									move.IsCapture ? 100 * (int)move.CapturePieceType - (int)move.MovePieceType : 
-									move.IsPromotion ? (int)move.PromotionPieceType : 0;
+									move.IsPromotion ? (int)move.PromotionPieceType : 0);
 		}
-		Array.Sort(moveIndices, (x, y) => { return moveScores[y] - moveScores[x]; });
+		Array.Sort(moveScores, legalMoves);
 
 		// Tree search
 		for (int i = 0; i < legalMoves.Length; ++i)
 		{
-			move = legalMoves[moveIndices[i]];
+			move = legalMoves[i];
 			if (depth <= 0 && !move.IsCapture) continue; // Only search captures in qsearch
 			mBoard.MakeMove(move);
 			int extension = totalExtension < 6 && mBoard.IsInCheck() ? 1 : 0;
