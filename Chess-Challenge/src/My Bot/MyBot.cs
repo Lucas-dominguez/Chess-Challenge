@@ -91,7 +91,6 @@ public class MyBot : IChessBot
 
 	#region rMembers
 
-	int mDepth;
 	Board mBoard;
 	Move mBestMove;
 	TEntry[] mTranspositionTable = new TEntry[kTTSize];
@@ -127,7 +126,6 @@ public class MyBot : IChessBot
 	/// </summary>
 	public Move Think(Board board, Timer timer)
 	{
-		mDepth = 1;
 		mBoard = board;
 
 #if DEBUG_TREE_SEARCH
@@ -136,8 +134,9 @@ public class MyBot : IChessBot
 		int msRemain = timer.MillisecondsRemaining;
 		if (msRemain < 200)
 			return mBoard.GetLegalMoves()[0];
+		int depth = 1;
 		while (timer.MillisecondsElapsedThisTurn < (msRemain / 200))
-			EvaluateBoardNegaMax(++mDepth, -kMassiveNum, kMassiveNum, mBoard.IsWhiteToMove ? 1 : -1);
+			EvaluateBoardNegaMax(++depth, -kMassiveNum, kMassiveNum, mBoard.IsWhiteToMove ? 1 : -1, true);
 		
 
 #if DEBUG_TIMER
@@ -159,7 +158,7 @@ public class MyBot : IChessBot
 	/// <summary>
 	/// Recursive search of given board position.
 	/// </summary>
-	int EvaluateBoardNegaMax(int depth, int alpha, int beta, int color)
+	int EvaluateBoardNegaMax(int depth, int alpha, int beta, int color, bool top, int totalExtension = 0)
 	{
 		ulong boardKey = mBoard.ZobristKey;
 		Move[] legalMoves = mBoard.GetLegalMoves();
@@ -214,14 +213,15 @@ public class MyBot : IChessBot
 			move = legalMoves[moveIndices[i]];
 			if (depth <= 0 && !move.IsCapture) continue; // Only search captures in qsearch
 			mBoard.MakeMove(move);
-			int evaluation = -EvaluateBoardNegaMax(depth - 1, -beta, -alpha, -color);
+			int extension = totalExtension < 6 && mBoard.IsInCheck() ? 1 : 0;
+			int evaluation = -EvaluateBoardNegaMax(depth - 1 + extension, -beta, -alpha, -color, false, totalExtension + extension);
 			mBoard.UndoMove(move);
 
 			if (recordEval < evaluation)
 			{
 				recordEval = evaluation;
 				bestMove = move;
-				if(depth == mDepth)
+				if(top)
 					mBestMove = move;
 			}
 			alpha = Math.Max(alpha, recordEval);
