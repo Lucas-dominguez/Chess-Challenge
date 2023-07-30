@@ -1,13 +1,212 @@
-﻿using ChessChallenge.API;
+﻿using System;
+using System.Collections.Generic;
+using ChessChallenge.API;
 
 public class MyBot : IChessBot
+
 {
-    public Move Think(Board board, Timer timer)
+    //r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1
+    //Depth=9 Nb move checks : 25 765 376 Nb positions saved : 1 791 464 -> Move: 'e2a6' = 225 -> 60s
+    //Depth=8 Nb move checks : 2 411 306 Nb positions saved : 709179 -> Move: 'e2a6' = -110 -> 15.9s
+    //Depth=7 Nb move checks : 1 890 098 Nb positions saved : 107476 -> Move: 'e2a6' = 225 -> 5.6s
+    //Depth=6 Nb move checks : 153 626 Nb positions saved : 42034 -> Move: 'e2a6' = -100 -> 1s
+    //Depth=5 Nb move checks : 107 362 Nb positions saved : 6107 -> Move: 'd5e6' = 315 -> 0.4s
+    //Depth=4 Nb move checks : 317 510 Nb positions saved : 68992 -> Move: 'd5e6' = 315 -> 1.4s
+    //Depth=3 Nb move checks : 5 906 Nb positions saved : 1796 -> Move: 'e2a6' = 50 -> 0.1s
+    //Depth=2 Nb move checks : 4 004 Nb positions saved : 138 -> Move: 'e2a6' = 390 -> 0.1s
+    //Depth=1 Nb move checks : 166 Nb positions saved : 49 -> Move: 'e2a6' = 70 -> 0.1
+    int MAX_DEPTH = 6; //6 is ideal
+    //best = 537 token -> 853 -> 939
+    int[] positionValues = { -50, -40, -30, -20, -10, -5, 0, 5, 10, 15, 20, 25, 30, 40, 50 };
+    //TODO make symetric, in ulong and modify bestPos to include -1/+1
+    // ->  positionValues = 0x645a504b46413
+    //int[] pieceValues = { 100, 300, 300, 450, 950, 960 }; 
+    //               King|Queen|Rook|Bishop|Knight|Pawn piece value /100 coded on 8 bits
+    //->  pieceValue = 0x605f2d1e1e0a;
+
+    // List of all prefered possition : index of value above coded in an 6*4 bit int for each case
+    // King|Queen|Rook|Bishop|Knight|Pawn
+    int[] bestPositions =
+                       {0x236306, 0x146416, 0x146426, 0x56426, 0x56426, 0x146426, 0x146416, 0x236306,
+                        0x24741e, 0x16863e, 0x16866e, 0x6866e, 0x6866e, 0x16866e, 0x16863e, 0x24741e,
+                        0x245428, 0x166668, 0x17678a, 0x7689c, 0x7689c, 0x17678a, 0x166668, 0x245428,
+                        0x255427, 0x166777, 0x176798, 0x768ab, 0x768ab, 0x176798, 0x166777, 0x255427,
+                        0x365426, 0x266666, 0x276896, 0x1768aa, 0x1768aa, 0x276896, 0x266666, 0x355426,
+                        0x445427, 0x376875, 0x376884, 0x376896, 0x376896, 0x376884, 0x366875, 0x445427,
+                        0xa45417, 0xa66738, 0x676668, 0x666673, 0x666673, 0x666668, 0xa66738, 0xa45417,
+                        0xa36306, 0xc46416, 0x846426, 0x657426, 0x657426, 0x846426, 0xc46416, 0xa36306
+    };
+
+    Dictionary<ulong, MyMove> transposition = new Dictionary<ulong, MyMove>();
+    //int INF = 25000;
+    int count;
+    MyMove[,] killerMoves;
+    Board board;
+    public Move Think(Board _board, Timer timer)
     {
-        Move[] moves = board.GetLegalMoves();
-        return moves[0];
+        board = _board;
+        killerMoves = new MyMove[6000, 2];//Max ply
+        count = 0;
+        if (timer.MillisecondsRemaining < 10000) //If 10s left -> aggressif quick mode
+            MAX_DEPTH = 5;
+        Move bestMove = Move.NullMove;
+        int bestScore = applyNegamaxOnmoves(MAX_DEPTH, -25000, 25000, board.IsWhiteToMove ? 1 : -1, ref bestMove);//- INF, +INF
+        Console.WriteLine("Depth=" + MAX_DEPTH + " move n°" + board.PlyCount + " checks : " + count + " Nb positions saved : " + transposition.Count + " -> " + bestMove + " = " + bestScore);
+        return bestMove;
+    }
+
+    //Test with minimax, negamax, negascout
+    int applyNegamaxOnmoves(int depth, int alpha, int beta, int color, ref Move pv)
+    {
+        int alphaOrigin = alpha;
+        bool dopv = false;
+        if (board.PlyCount >= 6000 || depth <= 0) //max ply
+            return color * (evaluateBoardForColor(true) - evaluateBoardForColor(false));
+
+        if (transposition.TryGetValue(board.ZobristKey, out MyMove? ttMove))
+        {
+            if (ttMove.depth >= depth)
+            {
+                switch (ttMove.flag)
+                {
+                    case 0:
+                        alpha = Math.Max(alpha, ttMove.value);
+                        break;
+                    case 1:
+                        beta = Math.Min(beta, ttMove.value);
+                        break;
+                    case 2:
+                        return ttMove.value;
+                }
+                if (alpha >= beta) return ttMove.value;
+            }
+        }
+
+        Span<Move> stackMove = stackalloc Move[400];//generate moves, 400=upper max movement possible for a turn
+        board.GetLegalMovesNonAlloc(ref stackMove);
+        var moves = new List<MyMove>();
+        foreach (Move m in stackMove) moves.Add(new MyMove(m));
+        scoreMoves(moves, ttMove);//Apply a sort score to all moves
+
+        MyMove bestMove = new MyMove(Move.NullMove);
+        int bestMoveValue = -25000;
+
+        for (int i = 0; i < moves.Count; i++)
+        {
+            //PickMove -> put the best sort score at the first index
+            for (int j = i + 1; j < moves.Count; j++)
+                if (moves[j].sortScore > moves[i].sortScore)
+                    (moves[i], moves[j]) = (moves[j], moves[i]); //swap
+            MyMove currentMove = moves[i];
+
+            board.MakeMove(currentMove.move);
+            Move node_pv = pv;
+            int currentScore = 0; //DRAW score
+            if (!board.IsDraw())
+            {
+                if (!dopv) currentScore = -applyNegamaxOnmoves(depth - 1, -beta, -alpha, -color, ref node_pv);
+                else
+                {
+                    currentScore = -applyNegamaxOnmoves(depth - 1, -alpha - 1, -alpha, -color, ref node_pv);
+                    if (currentScore > alpha && currentScore < beta) currentScore = -applyNegamaxOnmoves(depth - 1, -beta, -alpha, -color, ref node_pv);
+                }
+            }
+            board.UndoMove(currentMove.move);
+            if (currentScore > bestMoveValue)
+            {
+                bestMoveValue = currentScore;
+                bestMove = currentMove;
+            }
+            if (bestMoveValue > alpha)
+            {
+                alpha = bestMoveValue;
+                dopv = true;
+                pv = bestMove.move;
+            }
+            if (alpha >= beta)
+            {
+                if (!currentMove.move.IsCapture && !currentMove.Equals(killerMoves[board.PlyCount, 0]))
+                {
+                    killerMoves[board.PlyCount, 1] = killerMoves[board.PlyCount, 0];
+                    killerMoves[board.PlyCount, 0] = currentMove;
+                }
+                break;
+            }
+        }
+        if (moves.Count == 0)
+        {
+            if (board.IsInCheck())
+                return -24000 + board.PlyCount; //we are checkmate
+            return -1000;//-24000; //stalemate
+        }
+        if (bestMoveValue >= beta) bestMove.flag = 0;//lowerbound
+        else if (bestMoveValue <= alphaOrigin) bestMove.flag = 1;//upperbound
+        else bestMove.flag = 2;//exact
+        bestMove.value = bestMoveValue;
+        bestMove.depth = depth;
+        transposition.TryAdd(board.ZobristKey, bestMove);
+        return bestMoveValue;
+    }
+
+    int evaluateBoardForColor(bool whitePiece)
+    {
+        count++;
+        int boardValue = 0;
+        for (int i = 0; i < 6; i++)
+        {
+            ulong bitboard = board.GetPieceBitboard((PieceType)i + 1, whitePiece);
+            for (int j = 0; j < 64; j++)
+                if ((bitboard & 1UL << j) != 0)
+                    boardValue += (int)
+                        (
+                            positionValues[(bestPositions[whitePiece ? 63 - j : j] >> i * 4) & 0xF]
+                            + (0x5A32201F0A >> i * 8 & 0xff) * 10
+                        );
+        }
+        return boardValue;
+    }
+
+    /*int[][] MVV_LVA = { -> 
+        new int[]{15, 14, 13, 12, 11, 10 }, // victim P, attacker P, N, B, R, Q, K
+        new int[]{25, 24, 23, 22 ,21, 20 }, // victim N, attacker P, N, B, R, Q, K
+        new int[]{35, 34, 33, 32, 31, 30 }, // victim B, attacker P, N, B, R, Q, K
+        new int[]{45, 44, 43, 42, 41, 40 }, // victim R, attacker P, N, B, R, Q, K
+        new int[]{55, 54, 53, 52, 51, 50 }, // victim Q, attacker P, N, B, R, Q, K
+     //value = MVA_OFFSET + MVV_LVA[(int)move.move.CapturePieceType - 1][(int)move.move.MovePieceType - 1] -10;
+    };*/
+
+
+    int MVA_OFFSET = int.MaxValue - 256;
+    void scoreMoves(List<MyMove> moves, MyMove? ttMove)
+    {
+        for (int i = 0; i < moves.Count; i++)
+        {
+            int value = 0;
+            MyMove move = moves[i];
+            if (ttMove != null && move.move.Equals(ttMove.move))
+                value = MVA_OFFSET + 60;
+            else if (move.move.IsCapture)
+                value = MVA_OFFSET + (0xABCDEF0 >> (int)move.move.MovePieceType * 4 & 0xF) + 10 * (int)move.move.CapturePieceType; //MVV_LVA
+            else
+                for (int n = 0; n < 2; n++)
+                    if (killerMoves[board.PlyCount, n] != null && move.move.Equals(killerMoves[board.PlyCount, n].move))
+                    {
+                        value = MVA_OFFSET - (n + 1) * 10; //10 = killerValue
+                        break;
+                    }
+            move.sortScore = value;
+        }
+    }
+    class MyMove
+    {
+        public Move move;
+        public long sortScore;
+        public int value;
+        //0 -> alpha
+        //1 -> beta
+        //2 -> exact
+        public int flag;
+        public int depth;
+        public MyMove(Move _move) => move = _move;
     }
 }
-
-//My bot encrypted : 
-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
