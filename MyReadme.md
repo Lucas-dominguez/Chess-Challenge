@@ -7,7 +7,7 @@ Use algo **Negascout** (variant of negamax/minamax) with :
 - Transposition table
 - Move sort scoring according to
   - Transposition move
-  - Capture move
+  - Capture move, via MVV_LVA
   - Killer move
 
 ## Result
@@ -16,3 +16,4 @@ Optimal depth -> 6 (1s by move)
 
 ## Todo
 Encode late game square values with midgame, to keep in token limit
+Search for differents depths
