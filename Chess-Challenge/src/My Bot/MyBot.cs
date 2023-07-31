@@ -231,8 +231,6 @@ public class MyBot : IChessBot
 		}
 
 		// Store in transposition table
-		int ttEntryType = recordEval <= alphaOrig ? 2 :
-						  recordEval >= beta ? 1 : 0;
 		mTranspositionTable[boardKey % kTTSize] = new TEntry(boardKey, bestMove, depth, recordEval, 
 			recordEval <= alphaOrig ? 2 :
 			recordEval >= beta ? 1 :
