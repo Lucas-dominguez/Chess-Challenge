@@ -62,8 +62,12 @@ public class MyBotV1 : IChessBot
 	};
 	UInt64[] kBlackPTables;
 
-	//                     .  P    K    B    R    Q    K
-	int[] kPieceValues = { 0, 100, 300, 310, 500, 900, 10000 };
+
+	//                     P    N    B    R    Q    K
+	int[] kPieceValues = { 100, 300, 310, 500, 900,   0,
+						   110, 270, 290, 550,1000,   0 };
+	int[] kPiecePhase = { 0, 1, 1, 2, 4, 0 };
+
 	int kMassiveNum = 99999999;
 	const int kTTSize = 8333329;
 
@@ -136,7 +140,7 @@ public class MyBotV1 : IChessBot
 			return mBoard.GetLegalMoves()[0];
 		int depth = 1;
 		while (timer.MillisecondsElapsedThisTurn < (msRemain / 200))
-			EvaluateBoardNegaMax(++depth, -kMassiveNum, kMassiveNum, mBoard.IsWhiteToMove ? 1 : -1, true);
+			EvaluateBoardNegaMax(++depth, -kMassiveNum, kMassiveNum, true);
 
 
 #if DEBUG_TIMER
@@ -158,7 +162,7 @@ public class MyBotV1 : IChessBot
 	/// <summary>
 	/// Recursive search of given board position.
 	/// </summary>
-	int EvaluateBoardNegaMax(int depth, int alpha, int beta, int color, bool top, int totalExtension = 0)
+	int EvaluateBoardNegaMax(int depth, int alpha, int beta, bool top, int totalExtension = 0)
 	{
 		ulong boardKey = mBoard.ZobristKey;
 		Move[] legalMoves = mBoard.GetLegalMoves();
@@ -189,32 +193,30 @@ public class MyBotV1 : IChessBot
 #if DEBUG_TREE_SEARCH
 			dNumPositionsEvaluated++;
 #endif
-			recordEval = color * (EvalColor(true) - EvalColor(false));
+			recordEval = (mBoard.IsWhiteToMove ? 1 : -1) * (EvalColor(true) - EvalColor(false));
 			if (recordEval >= beta || depth <= -4) return recordEval;
 			alpha = Math.Max(alpha, recordEval);
 		}
 
 		// Sort Moves
 		int[] moveScores = new int[legalMoves.Length];
-		int[] moveIndices = new int[legalMoves.Length];
 		for (int i = 0; i < legalMoves.Length; ++i)
 		{
 			move = legalMoves[i];
-			moveIndices[i] = i;
-			moveScores[i] = move == entry.mBestMove ? 1000000 :
+			moveScores[i] = -(move == entry.mBestMove ? 1000000 :
 									move.IsCapture ? 100 * (int)move.CapturePieceType - (int)move.MovePieceType :
-									move.IsPromotion ? (int)move.PromotionPieceType : 0;
+									move.IsPromotion ? (int)move.PromotionPieceType : 0);
 		}
-		Array.Sort(moveIndices, (x, y) => { return moveScores[y] - moveScores[x]; });
+		Array.Sort(moveScores, legalMoves);
 
 		// Tree search
 		for (int i = 0; i < legalMoves.Length; ++i)
 		{
-			move = legalMoves[moveIndices[i]];
+			move = legalMoves[i];
 			if (depth <= 0 && !move.IsCapture) continue; // Only search captures in qsearch
 			mBoard.MakeMove(move);
 			int extension = totalExtension < 6 && mBoard.IsInCheck() ? 1 : 0;
-			int evaluation = -EvaluateBoardNegaMax(depth - 1 + extension, -beta, -alpha, -color, false, totalExtension + extension);
+			int evaluation = -EvaluateBoardNegaMax(depth - 1 + extension, -beta, -alpha, false, totalExtension + extension);
 			mBoard.UndoMove(move);
 
 			if (recordEval < evaluation)
@@ -229,8 +231,6 @@ public class MyBotV1 : IChessBot
 		}
 
 		// Store in transposition table
-		int ttEntryType = recordEval <= alphaOrig ? 2 :
-						  recordEval >= beta ? 1 : 0;
 		mTranspositionTable[boardKey % kTTSize] = new TEntry(boardKey, bestMove, depth, recordEval,
 			recordEval <= alphaOrig ? 2 :
 			recordEval >= beta ? 1 :
@@ -239,25 +239,32 @@ public class MyBotV1 : IChessBot
 		return recordEval;
 	}
 
-
-
 	/// <summary>
 	/// Evaluate the board for a given color.
 	/// </summary>
 	int EvalColor(bool isWhite)
 	{
-		int phase = mBoard.PlyCount > 20 ? 48 : 0;
 		UInt64[] PTable = isWhite ? kWhitePTables : kBlackPTables;
-		int sum = 0;
-		for (int i = 1; i < 7; ++i)
+
+		int phase = 0;
+		int sumMg = 0;
+		int sumEg = 0;
+
+		for (int i = 0; i < 6; ++i)
 		{
-			ulong pieceBitBoard = mBoard.GetPieceBitboard((PieceType)i, isWhite);
-			sum += (kPieceValues[i] - 121) * BitOperations.PopCount(pieceBitBoard);
+			ulong pieceBitBoard = mBoard.GetPieceBitboard((PieceType)(i + 1), isWhite);
+			int popcount = BitOperations.PopCount(pieceBitBoard);
+			phase += kPiecePhase[i] * popcount;
+			sumMg += (kPieceValues[i] - 121) * popcount;
+			sumEg += (kPieceValues[i + 6] - 121) * popcount;
 			for (int b = 0; b < 8; ++b)
-				sum += BitOperations.PopCount(pieceBitBoard & PTable[(i - 1) * 8 + b + phase]) * (1 << b);
+			{
+				sumMg += BitOperations.PopCount(pieceBitBoard & PTable[i * 8 + b]) * (1 << b);
+				sumEg += BitOperations.PopCount(pieceBitBoard & PTable[i * 8 + b + 48]) * (1 << b);
+			}
 		}
 
-		return sum;
+		return sumMg * phase + sumEg * (12 - phase);
 	}
 
 	#endregion rThinking
