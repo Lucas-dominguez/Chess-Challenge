@@ -1,33 +1,36 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Numerics;
 using ChessChallenge.API;
 
 public class MyBot : IChessBot
 
 {
-    //r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1
+    //r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1 -> -> (with quiencese)
     //Depth=9 Nb move checks : 25 765 376 Nb positions saved : 1 791 464 -> Move: 'e2a6' = 225 -> 60s
     //Depth=8 Nb move checks : 2 411 306 Nb positions saved : 709179 -> Move: 'e2a6' = -110 -> 12.2s
-    //Depth=7 Nb move checks : 1 890 098 Nb positions saved : 107476 -> Move: 'e2a6' = 225 -> 5.6s
-    //Depth=6 Nb move checks : 153 626 Nb positions saved : 42034 -> Move: 'e2a6' = -100 -> 1s
+    //Depth=7 Nb move checks : 1 890 098 Nb positions saved : 107476 -> Move: 'e2a6' = 225 -> 5.6s -> 6.3
+    //Depth=6 Nb move checks : 153 626 Nb positions saved : 42034 -> Move: 'e2a6' = -100 -> 1s -> 1.4
     //Depth=5 Nb move checks : 107 362 Nb positions saved : 6107 -> Move: 'd5e6' = 315 -> 0.4s
     //Depth=4 Nb move checks : 317 510 Nb positions saved : 68992 -> Move: 'd5e6' = 315 -> 1.4s
     //Depth=3 Nb move checks : 5 906 Nb positions saved : 1796 -> Move: 'e2a6' = 50 -> 0.1s
     //Depth=2 Nb move checks : 4 004 Nb positions saved : 138 -> Move: 'e2a6' = 390 -> 0.1s
     //Depth=1 Nb move checks : 166 Nb positions saved : 49 -> Move: 'e2a6' = 70 -> 0.1
+    // 1- 1 -6 contre X, 2-2-12
     int MAX_DEPTH = 6; //6 is ideal
-    //best = 537 token -> 853 -> 939
-    int[] positionValues = { -50, -40, -30, -20, -10, -5, 0, 5, 10, 15, 20, 25, 30, 40, 50 };
+    //best = 537 token -> 853 -> 959
+    //int[] positionValues = { -50, -40, -30, -20, -10, -5, 0, 5, 10, 15, 20, 25, 30, 40, 50 };
+    //int[] positionValues = { 0, 5, 10, 15, 20, 30, 40, 50 };
     //TODO make symetric, in ulong and modify bestPos to include -1/+1
-    // ->  positionValues = 0x645a504b46413
-    //int[] pieceValues = { 100, 300, 300, 450, 950, 960 }; 
-    //               King|Queen|Rook|Bishop|Knight|Pawn piece value /100 coded on 8 bits
-    //->  pieceValue = 0x605f2d1e1e0a;
+    // ->  positionValues = 0x23281E140F0A0500
+    //int[] pieceValues = { 100, 310, 320, 500, 900, 0 }; 
+    //               King|Queen|Rook|Bishop|Knight|Pawn piece value /10 coded on 8 bits
+    //->  pieceValue = 0x5A32201F0A;
 
     // List of all prefered possition : index of value above coded in an 6*4 bit int for each case
     // King|Queen|Rook|Bishop|Knight|Pawn
-    // from https://github.com/lhartikk/simple-chess-ai/blob/master/script.js 
-    int[] bestPositions =
+    // square piece from https://github.com/lhartikk/simple-chess-ai/blob/master/script.js 
+    /*ulong[] bestPositions =
                        {0x236306, 0x146416, 0x146426, 0x56426, 0x56426, 0x146426, 0x146416, 0x236306,
                         0x24741e, 0x16863e, 0x16866e, 0x6866e, 0x6866e, 0x16866e, 0x16863e, 0x24741e,
                         0x245428, 0x166668, 0x17678a, 0x7689c, 0x7689c, 0x17678a, 0x166668, 0x245428,
@@ -36,7 +39,23 @@ public class MyBot : IChessBot
                         0x445427, 0x376875, 0x376884, 0x376896, 0x376896, 0x376884, 0x366875, 0x445427,
                         0xa45417, 0xa66738, 0x676668, 0x666673, 0x666673, 0x666668, 0xa66738, 0xa45417,
                         0xa36306, 0xc46416, 0x846426, 0x657426, 0x657426, 0x846426, 0xc46416, 0xa36306
+    };*/
+    /* With EG = MG
+    ulong[] bestPositions = {
+    0xdc0cf0dc0cf0, 0xea0ae0ea0ae0, 0xea0ad0ea0ad0, 0xf90ad0f90ad0, 0xf90ad0f90ad0, 0xea0ad0ea0ad0, 0xea0ae0ea0ae0, 0xdc0cf0dc0cf0,
+    0xda1ae7da1ae7, 0xe020c7e020c7, 0xe02007e02007, 0xf02007f02007, 0xf02007f02007, 0xe02007e02007, 0xe020c7e020c7, 0xda1ae7da1ae7,
+    0xda9ad2da9ad2, 0xe00002e00002, 0xe10124e10124, 0xf10235f10235, 0xf10235f10235, 0xe10124e10124, 0xe00002e00002, 0xda9ad2da9ad2,
+    0xd99ad1d99ad1, 0xe00111e00111, 0xe10132e10132, 0xf10244f10244, 0xf10244f10244, 0xe10132e10132, 0xe00111e00111, 0xd99ad1d99ad1,
+    0xc09ad0c09ad0, 0xd00000d00000, 0xd10230d10230, 0xe10244e10244, 0xe10244e10244, 0xd10230d10230, 0xd00000d00000, 0xc99ad0c99ad0,
+    0xaa9ad1aa9ad1, 0xc10219c10219, 0xc1022ac1022a, 0xc10230c10230, 0xc10230c10230, 0xc1022ac1022a, 0xc00219c00219, 0xaa9ad1aa9ad1,
+    0x4a9ae14a9ae1, 0x4001c24001c2, 0x010002010002, 0x000001c00001c, 0x00001c00001c, 0x000002000002, 0x4001c24001c2, 0x4a9ae14a9ae1,
+    0x4c0cf04c0cf0, 0x5a0ae05a0ae0, 0x2a0ad02a0ad0, 0x0091ad0091ad0, 0x091ad0091ad0, 0x2a0ad02a0ad0, 0x5a0ae05a0ae0, 0x4c0cf04c0cf0
+    };*/
+
+    ulong[] bestPositions = {
+        0xfc0cf0dc0cf0, 0xea0ae0ea0ae0, 0xda0ad0ea0ad0, 0xc90ad0f90ad0, 0xc90ad0f90ad0, 0xda0ad0ea0ad0, 0xea0ae0ea0ae0, 0xfc0cf0dc0cf0, 0xda1ae7da1ae7, 0xc020c7e020c7, 0xa02007e02007, 0x2007f02007, 0x2007f02007, 0xa02007e02007, 0xc020c7e020c7, 0xda1ae7da1ae7, 0xda9ad2da9ad2, 0xa00002e00002, 0x410124e10124, 0x510235f10235, 0x510235f10235, 0x410124e10124, 0xa00002e00002, 0xda9ad2da9ad2, 0xd99ad1d99ad1, 0xa00111e00111, 0x510132e10132, 0x610244f10244, 0x610244f10244, 0x510132e10132, 0xa00111e00111, 0xd99ad1d99ad1, 0xd09ad0c09ad0, 0xa00000d00000, 0x510230d10230, 0x610244e10244, 0x610244e10244, 0x510230d10230, 0xa00000d00000, 0xd99ad0c99ad0, 0xda9ad1aa9ad1, 0xa10219c10219, 0x41022ac1022a, 0x510230c10230, 0x510230c10230, 0x41022ac1022a, 0xa00219c00219, 0xda9ad1aa9ad1, 0xda9ae14a9ae1, 0xd001c24001c2, 0x10002010002, 0x1c00001c, 0x1c00001c, 0x2000002, 0xd001c24001c2, 0xda9ae14a9ae1, 0xfc0cf04c0cf0, 0xda0ae05a0ae0, 0xda0ad02a0ad0, 0xd91ad0091ad0, 0xd91ad0091ad0, 0xda0ad02a0ad0, 0xda0ae05a0ae0, 0xfc0cf04c0cf0
     };
+
 
     Dictionary<ulong, MyMove> transposition = new Dictionary<ulong, MyMove>();
     //int INF = 25000;
@@ -52,7 +71,7 @@ public class MyBot : IChessBot
             MAX_DEPTH = 5;
         Move bestMove = Move.NullMove;
         int bestScore = applyNegascoutOnmoves(MAX_DEPTH, -25000, 25000, board.IsWhiteToMove ? 1 : -1, ref bestMove);//- INF, +INF
-        Console.WriteLine("Depth=" + MAX_DEPTH + " move n°" + board.PlyCount + " checks : " + count + " Nb positions saved : " + transposition.Count + " -> " + bestMove + " = " + bestScore);
+        //Console.WriteLine("Depth=" + MAX_DEPTH + " move n°" + board.PlyCount + " checks : " + count + " Nb positions saved : " + transposition.Count + " -> " + bestMove + " = " + bestScore);
         return bestMove;
     }
 
@@ -155,24 +174,35 @@ public class MyBot : IChessBot
         transposition.TryAdd(board.ZobristKey, bestMove);
         return bestMoveValue;
     }
+    //int[] gamephaseInc = { 0, 1, 1, 2, 4, 0 }; -> 0x042110
 
+    int getPSTValue(int phase, bool whitePiece, int i, int j)
+    {
+        ulong pst = (bestPositions[whitePiece ? 63 - j : j] >> (4 * i + 24 * phase)) & 0xF;
+        int sign = (pst & 8) == 8 ? -1 : 1;
+        return (int) (sign*((0x23281E140F0A0500 >> ((int)(pst & 7) * 8)) & 0xff) + (0x5A32201F0A >> i * 8 & 0xff) * 10);
+    }
     int evaluateBoardForColor(bool whitePiece)
     {
         count++;
-        int boardValue = 0;
+        //int boardValue = 0;
+        int gamePhase = 0;
+        int mgValue = 0;
+        int egValue = 0;
         for (int i = 0; i < 6; i++)
         {
-            ulong bitboard = board.GetPieceBitboard((PieceType)i + 1, whitePiece);
+            ulong bitboard = board.GetPieceBitboard((PieceType) i + 1, whitePiece);
             for (int j = 0; j < 64; j++)
                 if ((bitboard & 1UL << j) != 0)
-                    boardValue += (int)
-                        (
-                            positionValues[(bestPositions[whitePiece ? 63 - j : j] >> i * 4) & 0xF]
-                            + (0x5A32201F0A >> i * 8 & 0xff) * 10
-                        );
+                {
+                    gamePhase += 0x042110 >> i * 4 & 0xF;
+                    mgValue += getPSTValue(0, whitePiece, i, j);
+                    egValue += getPSTValue(1, whitePiece, i, j);
+                }
         }
-        return boardValue;
+        return (mgValue * gamePhase + egValue * (12 - gamePhase)) / 12;
     }
+
 
     /*int[][] MVV_LVA = { -> 
         new int[]{15, 14, 13, 12, 11, 10 }, // victim P, attacker P, N, B, R, Q, K
