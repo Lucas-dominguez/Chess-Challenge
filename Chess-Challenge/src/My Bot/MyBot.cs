@@ -63,7 +63,8 @@ public class MyBot : IChessBot
         0xfc0cf04c0cf0, 0xda0ae05a0ae0, 0xda0ad02a0ad0, 0xd91ad0091ad0, 0xd91ad0091ad0, 0xda0ad02a0ad0, 0xda0ae05a0ae0, 0xfc0cf04c0cf0
         };*/
 
-    ulong[] bestPositions = {
+    /*PESTO reworked
+     * ulong[] bestPositions = {
         0xfa3bf0fd5df0, 0xe42ce04061f0, 0xc44ab0355fd0, 0xc53ad0b27ef0, 0xa529d0f77d70, 0x342ad0d62ef0, 0x122bf00651b0, 0xb41cf0366af0,
         0xab2ad75c5df7, 0x3439a70e53e7, 0x3531d7c97c77, 0x362a07907b67, 0x3799a7ab7547, 0x641bd7977777, 0x4529c7e55415, 0x201bf7d76fba,
         0x2c10c7ab9bf9, 0x311ac74b4671, 0x421027015665, 0x371027b26675, 0x471007c53577, 0x6591a7176777, 0x6490c7477674, 0x3291e7c7306c,
@@ -72,7 +73,18 @@ public class MyBot : IChessBot
         0xcb9ac1bbf0cd, 0x9d0991b0d3a9, 0x239209cab329, 0x410230f0b32a, 0x429320e91341, 0x33a199d00531, 0x12a9c0b39445, 0xa1bbcad1d2ba,
         0xdc9be30ee1de, 0xac9cc21ab3f0, 0x1d09a2a2c3ac, 0x3b0092f0a09c, 0x3ba103e2010b, 0x1caac0b32444, 0x9eabc02995b6, 0xbd9de920f0cc,
         0xfdacd0b0cdf0, 0xdd0af06cb9c0, 0xcc1cc02a0bf0, 0xae09b0f23cd0, 0xd99ac02b3bb0, 0xbdbbc0dd1ad0, 0xcc19f04deec0, 0xeecbf03fdcc0
-    };
+    };*/
+
+    ulong[] bestPositions = {
+            0xfa3bf0dc0cf0, 0xe42ce0ea0ae0, 0xc44ab0ea0ad0, 0xc53ad0f90ad0, 0xa529d0f90ad0, 0x342ad0ea0ad0, 0x122bf0ea0ae0, 0xb41cf0dc0cf0,
+            0xab2ad7da1ae7, 0x3439a7e020c7, 0x3531d7e02007, 0x362a07f02007, 0x3799a7f02007, 0x641bd7e02007, 0x4529c7e020c7, 0x201bf7da1ae7,
+            0x2c10c7da9ad2, 0x311ac7e00002, 0x421027e10124, 0x371027f10235, 0x471007f10235, 0x6591a7e10124, 0x6490c7e00002, 0x3291e7da9ad2,
+            0xa119b5d99ad1, 0x441214e00111, 0x443243e10132, 0x560241f10244, 0x570340f10244, 0x560221e10132, 0x570123e00111, 0x1600c3d99ad1,
+            0xcc19c3c09ad0, 0x951192d00000, 0x442339d10230, 0x471449e10244, 0x559139e10244, 0x45923ad10230, 0x26a911d00000, 0xa4aac0c99ad0,
+            0xcb9ac1aa9ad1, 0x9d0991c10219, 0x239209c1022a, 0x410230c10230, 0x429320c10230, 0x33a199c1022a, 0x12a9c0c00219, 0xa1bbcaaa9ad1,
+            0xdc9be34a9ae1, 0xac9cc24001c2, 0x1d09a2010002, 0x3b009200001c, 0x3ba10300001c, 0x1caac0000002, 0x9eabc04001c2, 0xbd9de94a9ae1,
+            0xfdacd04c0cf0, 0xdd0af05a0ae0, 0xcc1cc02a0ad0, 0xae09b0091ad0, 0xd99ac0091ad0, 0xbdbbc02a0ad0, 0xcc19f05a0ae0, 0xeecbf04c0cf0,
+                };
 
 
     Dictionary<ulong, MyMove> transposition = new Dictionary<ulong, MyMove>();
@@ -123,7 +135,8 @@ public class MyBot : IChessBot
         int bestMoveValue = -25000;
         if (quiencense)
         {
-            bestMoveValue = color * (evaluateBoardForColor(true) - evaluateBoardForColor(false));
+            //bestMoveValue = color * (evaluateBoardForColor(true) - evaluateBoardForColor(false));
+            bestMoveValue = color * evaluateBoard();
             if(bestMoveValue > beta) return bestMoveValue;
             alpha = Math.Max(alpha, bestMoveValue);
         }
@@ -199,27 +212,30 @@ public class MyBot : IChessBot
     {
         ulong pst = (bestPositions[whitePiece ? 63 - j : j] >> (4 * i + 24 * phase)) & 0xF;
         int sign = (pst & 8) == 8 ? -1 : 1;
-        return (int) (sign*((0x23281E140F0A0500 >> ((int)(pst & 7) * 8)) & 0xff) + (0x5A32201F0A >> i * 8 & 0xff) * 10);
+        return (whitePiece ? 1 : -1) * (int) (sign*((0x23281E140F0A0500 >> ((int)(pst & 7) * 8)) & 0xff) + (0x5A32201F0A >> i * 8 & 0xff) * 10);
     }
-    int evaluateBoardForColor(bool whitePiece)
+    int evaluateBoard()
     {
         count++;
         //int boardValue = 0;
         int gamePhase = 0;
         int mgValue = 0;
         int egValue = 0;
-        for (int i = 0; i < 6; i++)
+        foreach (bool whitePiece in new[] { true, false })
         {
-            ulong bitboard = board.GetPieceBitboard((PieceType) i + 1, whitePiece);
-            for (int j = 0; j < 64; j++)
-                if ((bitboard & 1UL << j) != 0)
-                {
-                    gamePhase += 0x042110 >> i * 4 & 0xF;
-                    mgValue += getPSTValue(0, whitePiece, i, j);
-                    egValue += getPSTValue(1, whitePiece, i, j);
-                }
+            for (int i = 0; i < 6; i++)
+            {
+                ulong bitboard = board.GetPieceBitboard((PieceType)i + 1, whitePiece);
+                for (int j = 0; j < 64; j++)
+                    if ((bitboard & 1UL << j) != 0)
+                    {
+                        gamePhase += 0x042110 >> i * 4 & 0xF;
+                        mgValue += getPSTValue(0, whitePiece, i, j);
+                        egValue += getPSTValue(1, whitePiece, i, j);
+                    }
+            }
         }
-        return (mgValue * gamePhase + egValue * (12 - gamePhase)) / 12;
+        return (mgValue * gamePhase + egValue * (24 - gamePhase)) / 24;
     }
 
 
