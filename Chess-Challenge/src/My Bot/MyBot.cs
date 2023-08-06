@@ -17,7 +17,6 @@ public class MyBot : IChessBot
     //Depth=2 Nb move checks : 4 004 Nb positions saved : 138 -> Move: 'e2a6' = 390 -> 0.1s
     //Depth=1 Nb move checks : 166 Nb positions saved : 49 -> Move: 'e2a6' = 70 -> 0.1
     // 1- 1 -6 contre X, 2-2-12
-    int MAX_DEPTH = 6; //6 is ideal
     //best = 537 token -> 853 -> 959
     //int[] positionValues = { -50, -40, -30, -20, -10, -5, 0, 5, 10, 15, 20, 25, 30, 40, 50 };
     //int[] positionValues = { 0, 5, 10, 15, 20, 30, 40, 50 };
@@ -52,12 +51,32 @@ public class MyBot : IChessBot
     0x4c0cf04c0cf0, 0x5a0ae05a0ae0, 0x2a0ad02a0ad0, 0x0091ad0091ad0, 0x091ad0091ad0, 0x2a0ad02a0ad0, 0x5a0ae05a0ae0, 0x4c0cf04c0cf0
     };*/
 
+    /* PST with simplified tb and king EG
+      ulong[] bestPositions = {
+        0xfc0cf0dc0cf0, 0xea0ae0ea0ae0, 0xda0ad0ea0ad0, 0xc90ad0f90ad0, 0xc90ad0f90ad0, 0xda0ad0ea0ad0, 0xea0ae0ea0ae0, 0xfc0cf0dc0cf0,
+        0xda1ae7da1ae7, 0xc020c7e020c7, 0xa02007e02007, 0x2007f02007, 0x2007f02007, 0xa02007e02007, 0xc020c7e020c7, 0xda1ae7da1ae7,
+        0xda9ad2da9ad2, 0xa00002e00002, 0x410124e10124, 0x510235f10235, 0x510235f10235, 0x410124e10124, 0xa00002e00002, 0xda9ad2da9ad2,
+        0xd99ad1d99ad1, 0xa00111e00111, 0x510132e10132, 0x610244f10244, 0x610244f10244, 0x510132e10132, 0xa00111e00111, 0xd99ad1d99ad1,
+        0xd09ad0c09ad0, 0xa00000d00000, 0x510230d10230, 0x610244e10244, 0x610244e10244, 0x510230d10230, 0xa00000d00000, 0xd99ad0c99ad0,
+        0xda9ad1aa9ad1, 0xa10219c10219, 0x41022ac1022a, 0x510230c10230, 0x510230c10230, 0x41022ac1022a, 0xa00219c00219, 0xda9ad1aa9ad1,
+        0xda9ae14a9ae1, 0xd001c24001c2, 0x10002010002, 0x1c00001c, 0x1c00001c, 0x2000002, 0xd001c24001c2, 0xda9ae14a9ae1,
+        0xfc0cf04c0cf0, 0xda0ae05a0ae0, 0xda0ad02a0ad0, 0xd91ad0091ad0, 0xd91ad0091ad0, 0xda0ad02a0ad0, 0xda0ae05a0ae0, 0xfc0cf04c0cf0
+        };*/
+
     ulong[] bestPositions = {
-        0xfc0cf0dc0cf0, 0xea0ae0ea0ae0, 0xda0ad0ea0ad0, 0xc90ad0f90ad0, 0xc90ad0f90ad0, 0xda0ad0ea0ad0, 0xea0ae0ea0ae0, 0xfc0cf0dc0cf0, 0xda1ae7da1ae7, 0xc020c7e020c7, 0xa02007e02007, 0x2007f02007, 0x2007f02007, 0xa02007e02007, 0xc020c7e020c7, 0xda1ae7da1ae7, 0xda9ad2da9ad2, 0xa00002e00002, 0x410124e10124, 0x510235f10235, 0x510235f10235, 0x410124e10124, 0xa00002e00002, 0xda9ad2da9ad2, 0xd99ad1d99ad1, 0xa00111e00111, 0x510132e10132, 0x610244f10244, 0x610244f10244, 0x510132e10132, 0xa00111e00111, 0xd99ad1d99ad1, 0xd09ad0c09ad0, 0xa00000d00000, 0x510230d10230, 0x610244e10244, 0x610244e10244, 0x510230d10230, 0xa00000d00000, 0xd99ad0c99ad0, 0xda9ad1aa9ad1, 0xa10219c10219, 0x41022ac1022a, 0x510230c10230, 0x510230c10230, 0x41022ac1022a, 0xa00219c00219, 0xda9ad1aa9ad1, 0xda9ae14a9ae1, 0xd001c24001c2, 0x10002010002, 0x1c00001c, 0x1c00001c, 0x2000002, 0xd001c24001c2, 0xda9ae14a9ae1, 0xfc0cf04c0cf0, 0xda0ae05a0ae0, 0xda0ad02a0ad0, 0xd91ad0091ad0, 0xd91ad0091ad0, 0xda0ad02a0ad0, 0xda0ae05a0ae0, 0xfc0cf04c0cf0
+        0xfa3bf0fd5df0, 0xe42ce04061f0, 0xc44ab0355fd0, 0xc53ad0b27ef0, 0xa529d0f77d70, 0x342ad0d62ef0, 0x122bf00651b0, 0xb41cf0366af0,
+        0xab2ad75c5df7, 0x3439a70e53e7, 0x3531d7c97c77, 0x362a07907b67, 0x3799a7ab7547, 0x641bd7977777, 0x4529c7e55415, 0x201bf7d76fba,
+        0x2c10c7ab9bf9, 0x311ac74b4671, 0x421027015665, 0x371027b26675, 0x471007c53577, 0x6591a7176777, 0x6490c7477674, 0x3291e7c7306c,
+        0xa119b5bdc9ab, 0x441214cda133, 0x443243ab1441, 0x560241db5774, 0x570340d04664, 0x560221d35672, 0x570123b0a143, 0x1600c3e0c04c,
+        0xcc19c3fae9bd, 0x9511920dd310, 0x442339daa339, 0x471449ea0532, 0x559139f02553, 0x45923ae99241, 0x26a911d11242, 0xa4aac0f9c1ad,
+        0xcb9ac1bbf0cd, 0x9d0991b0d3a9, 0x239209cab329, 0x410230f0b32a, 0x429320e91341, 0x33a199d00531, 0x12a9c0b39445, 0xa1bbcad1d2ba,
+        0xdc9be30ee1de, 0xac9cc21ab3f0, 0x1d09a2a2c3ac, 0x3b0092f0a09c, 0x3ba103e2010b, 0x1caac0b32444, 0x9eabc02995b6, 0xbd9de920f0cc,
+        0xfdacd0b0cdf0, 0xdd0af06cb9c0, 0xcc1cc02a0bf0, 0xae09b0f23cd0, 0xd99ac02b3bb0, 0xbdbbc0dd1ad0, 0xcc19f04deec0, 0xeecbf03fdcc0
     };
 
 
     Dictionary<ulong, MyMove> transposition = new Dictionary<ulong, MyMove>();
+    int MAX_DEPTH = 6; //6 is ideal
     //int INF = 25000;
     int count;
     MyMove[,] killerMoves;
@@ -71,7 +90,7 @@ public class MyBot : IChessBot
             MAX_DEPTH = 5;
         Move bestMove = Move.NullMove;
         int bestScore = applyNegascoutOnmoves(MAX_DEPTH, -25000, 25000, board.IsWhiteToMove ? 1 : -1, ref bestMove);//- INF, +INF
-        //Console.WriteLine("Depth=" + MAX_DEPTH + " move n°" + board.PlyCount + " checks : " + count + " Nb positions saved : " + transposition.Count + " -> " + bestMove + " = " + bestScore);
+        Console.WriteLine("Depth=" + MAX_DEPTH + " move n°" + board.PlyCount + " checks : " + count + " Nb positions saved : " + transposition.Count + " -> " + bestMove + " = " + bestScore);
         return bestMove;
     }
 
