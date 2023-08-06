@@ -1,16 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Threading.Tasks;
 using ChessChallenge.API;
 
 public class MyBot : IChessBot
 
 {
     //r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1 -> -> (with quiencese)
-    //Depth=9 Nb move checks : 25 765 376 Nb positions saved : 1 791 464 -> Move: 'e2a6' = 225 -> 60s
-    //Depth=8 Nb move checks : 2 411 306 Nb positions saved : 709179 -> Move: 'e2a6' = -110 -> 12.2s
-    //Depth=7 Nb move checks : 1 890 098 Nb positions saved : 107476 -> Move: 'e2a6' = 225 -> 5.6s -> 6.3
-    //Depth=6 Nb move checks : 153 626 Nb positions saved : 42034 -> Move: 'e2a6' = -100 -> 1s -> 1.4
+    //Depth=9 move n°0 checks : 16 235 476 Nb positions saved : 3010698 -> Move: 'e2a6' = -47 -> 60s
+    //Depth=8 move n°0 checks : 3 392 607 Nb positions saved : 1327587 -> Move: 'e2a6' = 5 -> 17.2s (19 without init) -> 12.3
+    //Depth=7 move n°0 checks : 1 256 191 Nb positions saved : 238280 -> Move: 'e2a6' = 27 -> 5.4
+    //Depth=6 move n°0 checks : 245 357 Nb positions saved : 77744 -> Move: 'e2a6' = 42 -> 1.3 (1.4 without init) -> 1.1 (with bitboard)
     //Depth=5 Nb move checks : 107 362 Nb positions saved : 6107 -> Move: 'd5e6' = 315 -> 0.4s
     //Depth=4 Nb move checks : 317 510 Nb positions saved : 68992 -> Move: 'd5e6' = 315 -> 1.4s
     //Depth=3 Nb move checks : 5 906 Nb positions saved : 1796 -> Move: 'e2a6' = 50 -> 0.1s
@@ -86,9 +87,22 @@ public class MyBot : IChessBot
             0xfdacd04c0cf0, 0xdd0af05a0ae0, 0xcc1cc02a0ad0, 0xae09b0091ad0, 0xd99ac0091ad0, 0xbdbbc02a0ad0, 0xcc19f05a0ae0, 0xeecbf04c0cf0,
                 };
 
+    int[,,] mg_PST = new int[2,6,64];
+    int[,,] eg_PST = new int[2,6,64];
+    public MyBot()
+    {
+        for(int i = 0; i < 6; i++)
+        {
+            for(int j= 0; j < 64; j++)
+            {
+                (mg_PST[0, i, j], mg_PST[1, i, j]) = (getPSTValue(0, true, i, j), getPSTValue(0, false, i, j));
+                (eg_PST[0, i, j], eg_PST[1, i, j]) = (getPSTValue(1, true, i, j), getPSTValue(1, false, i, j));
+            }
+        }
+    }
 
     Dictionary<ulong, MyMove> transposition = new Dictionary<ulong, MyMove>();
-    int MAX_DEPTH = 6; //6 is ideal
+    int MAX_DEPTH = 7; //6 is ideal
     //int INF = 25000;
     int count;
     MyMove[,] killerMoves;
@@ -135,7 +149,6 @@ public class MyBot : IChessBot
         int bestMoveValue = -25000;
         if (quiencense)
         {
-            //bestMoveValue = color * (evaluateBoardForColor(true) - evaluateBoardForColor(false));
             bestMoveValue = color * evaluateBoard();
             if(bestMoveValue > beta) return bestMoveValue;
             alpha = Math.Max(alpha, bestMoveValue);
@@ -217,22 +230,22 @@ public class MyBot : IChessBot
     int evaluateBoard()
     {
         count++;
-        //int boardValue = 0;
         int gamePhase = 0;
         int mgValue = 0;
         int egValue = 0;
         foreach (bool whitePiece in new[] { true, false })
         {
+            int w = whitePiece ? 0 : 1;
             for (int i = 0; i < 6; i++)
             {
                 ulong bitboard = board.GetPieceBitboard((PieceType)i + 1, whitePiece);
-                for (int j = 0; j < 64; j++)
-                    if ((bitboard & 1UL << j) != 0)
-                    {
-                        gamePhase += 0x042110 >> i * 4 & 0xF;
-                        mgValue += getPSTValue(0, whitePiece, i, j);
-                        egValue += getPSTValue(1, whitePiece, i, j);
-                    }
+                while (bitboard != 0)
+                {
+                    gamePhase += 0x042110 >> i * 4 & 0xF;
+                    int j = BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard);
+                    mgValue += mg_PST[w, i, j];
+                    egValue += eg_PST[w, i, j];
+                }
             }
         }
         return (mgValue * gamePhase + egValue * (24 - gamePhase)) / 24;
@@ -273,7 +286,7 @@ public class MyBot : IChessBot
     class MyMove //also tt entry
     {
         public Move move;
-        public long sortScore;
+        public int sortScore;
         public int value;
         //0 -> alpha
         //1 -> beta
