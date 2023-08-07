@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using ChessChallenge.API;
 
 public class MyBot : IChessBot
@@ -9,8 +10,10 @@ public class MyBot : IChessBot
     //Depth=9 move n°0 checks : 16 299 258 Nb positions saved : 3039928 -> Move: 'e2a6' = -47 -> 42.7
     //Depth=8 move n°0 checks : 3 392 607 Nb positions saved : 1327587 -> Move: 'e2a6' = 5 -> 17.2s (19 without init) -> 12.1
     //Depth=8 move n°0 checks : 3 396 320 Nb positions saved : 1329521 -> Move: 'e2a6' = 5 (with one killermove) -> 11.7
+    //Depth=8 move n°0 checks : 3 518 421 Nb positions saved : 1388626 -> Move: 'e2a6' = -41 -> 11.8 (with pesto) 
     //Depth=7 move n°0 checks : 1 257 329 Nb positions saved : 238708 -> Move: 'e2a6' = 27 -> 5.4 -> 3.1
     //Depth=6 move n°0 checks : 2 453 28 Nb positions saved : 77741 -> Move: 'e2a6' = 42 -> 1.3 (1.4 without init) -> 0.9 (with bitboard)
+    //Depth=6 move n°0 checks : 325 443 Nb positions saved : 96311 -> Move: 'e2a6' = -30
     //Depth=5 Nb move checks : 107 362 Nb positions saved : 6107 -> Move: 'd5e6' = 315 -> 0.4s
     //Depth=4 Nb move checks : 317 510 Nb positions saved : 68992 -> Move: 'd5e6' = 315 -> 1.4s
     //Depth=3 Nb move checks : 5 906 Nb positions saved : 1796 -> Move: 'e2a6' = 50 -> 0.1s
@@ -74,8 +77,7 @@ public class MyBot : IChessBot
         0xdc9be30ee1de, 0xac9cc21ab3f0, 0x1d09a2a2c3ac, 0x3b0092f0a09c, 0x3ba103e2010b, 0x1caac0b32444, 0x9eabc02995b6, 0xbd9de920f0cc,
         0xfdacd0b0cdf0, 0xdd0af06cb9c0, 0xcc1cc02a0bf0, 0xae09b0f23cd0, 0xd99ac02b3bb0, 0xbdbbc0dd1ad0, 0xcc19f04deec0, 0xeecbf03fdcc0
     };*/
-
-    ulong[] bestPositions = {
+    /*ulong[] bestPositions = {
             0xfa3bf0dc0cf0, 0xe42ce0ea0ae0, 0xc44ab0ea0ad0, 0xc53ad0f90ad0, 0xa529d0f90ad0, 0x342ad0ea0ad0, 0x122bf0ea0ae0, 0xb41cf0dc0cf0,
             0xab2ad7da1ae7, 0x3439a7e020c7, 0x3531d7e02007, 0x362a07f02007, 0x3799a7f02007, 0x641bd7e02007, 0x4529c7e020c7, 0x201bf7da1ae7,
             0x2c10c7da9ad2, 0x311ac7e00002, 0x421027e10124, 0x371027f10235, 0x471007f10235, 0x6591a7e10124, 0x6490c7e00002, 0x3291e7da9ad2,
@@ -84,20 +86,43 @@ public class MyBot : IChessBot
             0xcb9ac1aa9ad1, 0x9d0991c10219, 0x239209c1022a, 0x410230c10230, 0x429320c10230, 0x33a199c1022a, 0x12a9c0c00219, 0xa1bbcaaa9ad1,
             0xdc9be34a9ae1, 0xac9cc24001c2, 0x1d09a2010002, 0x3b009200001c, 0x3ba10300001c, 0x1caac0000002, 0x9eabc04001c2, 0xbd9de94a9ae1,
             0xfdacd04c0cf0, 0xdd0af05a0ae0, 0xcc1cc02a0ad0, 0xae09b0091ad0, 0xd99ac0091ad0, 0xbdbbc02a0ad0, 0xcc19f05a0ae0, 0xeecbf04c0cf0,
-                };
+                };*/
+
+    decimal[] pestoCompressed = {
+        63746705523041458768562654720m, 71818693703096985528394040064m, 75532537544690978830456252672m, 75536154932036771593352371712m, 76774085526445040292133284352m, 3110608541636285947269332480m, 936945638387574698250991104m, 75531285965747665584902616832m,
+        77047302762000299964198997571m, 3730792265775293618620982364m, 3121489077029470166123295018m, 3747712412930601838683035969m, 3763381335243474116535455791m, 8067176012614548496052660822m, 4977175895537975520060507415m, 2475894077091727551177487608m,
+        2458978764687427073924784380m, 3718684080556872886692423941m, 4959037324412353051075877138m, 3135972447545098299460234261m, 4371494653131335197311645996m, 9624249097030609585804826662m, 9301461106541282841985626641m, 2793818196182115168911564530m,
+        77683174186957799541255830262m, 4660418590176711545920359433m, 4971145620211324499469864196m, 5608211711321183125202150414m, 5617883191736004891949734160m, 7150801075091790966455611144m, 5619082524459738931006868492m, 649197923531967450704711664m,
+        75809334407291469990832437230m, 78322691297526401047122740223m, 4348529951871323093202439165m, 4990460191572192980035045640m, 5597312470813537077508379404m, 4980755617409140165251173636m, 1890741055734852330174483975m, 76772801025035254361275759599m,
+        75502243563200070682362835182m, 78896921543467230670583692029m, 2489164206166677455700101373m, 4338830174078735659125311481m, 4960199192571758553533648130m, 3420013420025511569771334658m, 1557077491473974933188251927m, 77376040767919248347203368440m,
+        73949978050619586491881614568m, 77043619187199676893167803647m, 1212557245150259869494540530m, 3081561358716686153294085872m, 3392217589357453836837847030m, 1219782446916489227407330320m, 78580145051212187267589731866m, 75798434925965430405537592305m,
+        68369566912511282590874449920m, 72396532057599326246617936384m, 75186737388538008131054524416m, 77027917484951889231108827392m, 73655004947793353634062267392m, 76417372019396591550492896512m, 74568981255592060493492515584m, 70529879645288096380279255040m,
+    };
 
     int[,,] mg_PST = new int[2, 6, 64];
     int[,,] eg_PST = new int[2, 6, 64];
+    int[][] pestoTable = new int[64][];
+    short[] pvm = { 82, 337, 365, 477, 1025, 0, // Middlegame
+                    94, 281, 297, 512, 936, 0};
     public MyBot()
     {
-        for (int i = 0; i < 6; i++)
+
+        /*for (int i = 0; i < 6; i++)
         {
             for (int j = 0; j < 64; j++)
             {
                 (mg_PST[0, i, j], mg_PST[1, i, j]) = (getPSTValue(0, true, i, j), getPSTValue(0, false, i, j));
                 (eg_PST[0, i, j], eg_PST[1, i, j]) = (getPSTValue(1, true, i, j), getPSTValue(1, false, i, j));
             }
-        }
+        }*/
+        pestoTable = pestoCompressed.Select(packedTable =>
+        {
+            int pieceType = 0;
+            return decimal.GetBits(packedTable).Take(3)
+                .SelectMany(c => BitConverter.GetBytes(c)
+                    .Select((byte square) => (int)((sbyte)square * 1.461) + pvm[pieceType++]))
+                .ToArray();
+        }).ToArray();
     }
 
     Dictionary<ulong, MyMove> transposition = new Dictionary<ulong, MyMove>();
@@ -114,8 +139,8 @@ public class MyBot : IChessBot
         if (timer.MillisecondsRemaining < 10000) //If 10s left -> aggressif quick mode
             MAX_DEPTH = 6;
         Move bestMove = Move.NullMove;
-        int bestScore = applyNegascoutOnmoves(MAX_DEPTH, -25000, 25000, board.IsWhiteToMove ? 1 : -1, ref bestMove);//- INF, +INF
-        //Console.WriteLine("Depth=" + MAX_DEPTH + " move n°" + board.PlyCount + " checks : " + count + " Nb positions saved : " + transposition.Count + " -> " + bestMove + " = " + bestScore);
+        int bestScore = applyNegascoutOnmoves(MAX_DEPTH, -100000, 100000, board.IsWhiteToMove ? 1 : -1, ref bestMove);//- INF, +INF
+        Console.WriteLine("Depth=" + MAX_DEPTH + " move n°" + board.PlyCount + " checks : " + count + " Nb positions saved : " + transposition.Count + " -> " + bestMove + " = " + bestScore);
         return bestMove;
     }
 
@@ -123,10 +148,13 @@ public class MyBot : IChessBot
     //inspired by https://rustic-chess.org/search/ordering/how.html
     int applyNegascoutOnmoves(int depth, int alpha, int beta, int color, ref Move pv)
     {
-        bool quiencense = depth <= 0;
+        bool quiencense = depth <= 0,
+            dopv = false,
+            incheck = board.IsInCheck(),
+            root = depth == MAX_DEPTH;
         int alphaOrigin = alpha;
-        bool dopv = false;
-
+        if (!root && board.IsRepeatedPosition()) return 0;
+        if (incheck) depth++;
         if (transposition.TryGetValue(board.ZobristKey, out MyMove? ttMove))
         {
             if (ttMove.depth >= depth)
@@ -145,10 +173,10 @@ public class MyBot : IChessBot
                 if (alpha >= beta) return ttMove.value;
             }
         }
-        int bestMoveValue = -25000;
+        int bestMoveValue = -200000;
         if (quiencense)
         {
-            bestMoveValue = color * evaluateBoard();
+            bestMoveValue = evaluateBoard();
             if (bestMoveValue > beta) return bestMoveValue;
             alpha = Math.Max(alpha, bestMoveValue);
         }
@@ -173,6 +201,10 @@ public class MyBot : IChessBot
             board.MakeMove(currentMove.move);
             Move node_pv = pv;
             int currentScore = 0; //DRAW score
+            /*if (currentMove.move.ToString().Equals("Move: 'b4c3'"))
+            {
+                Console.WriteLine(currentMove.move);
+            }*/
             if (!board.IsDraw())
             {
                 if (!dopv) currentScore = -applyNegascoutOnmoves(depth - 1, -beta, -alpha, -color, ref node_pv);
@@ -207,7 +239,7 @@ public class MyBot : IChessBot
         if (!quiencense && moves.Count == 0)
         {
             if (board.IsInCheck())
-                return -24000 + board.PlyCount; //we are checkmate
+                return board.PlyCount - 100000; //we are checkmate
             return 0; //stalemate
         }
         if (bestMoveValue >= beta) bestMove.flag = 0;//lowerbound
@@ -219,37 +251,37 @@ public class MyBot : IChessBot
     }
     //int[] gamephaseInc = { 0, 1, 1, 2, 4, 0 };// -> 0x042110
 
-    int getPSTValue(int phase, bool whitePiece, int i, int j)
+    /*int getPSTValue(int phase, bool whitePiece, int i, int j)
     {
         ulong pst = (bestPositions[whitePiece ? 63 - j : j] >> (4 * i + 24 * phase)) & 0xF;
         int sign = (pst & 8) == 8 ? -1 : 1;
         return (whitePiece ? 1 : -1) * (int)(
             sign * ((0x23281E140F0A0500 >> ((int)(pst & 7) * 8)) & 0xff) //pst value
             + (0x5A32201F0A >> i * 8 & 0xff) * 10); //piece value
-    }
-    void evaluateForColor(bool whitePiece, int w)
-    {
-        //int w = whitePiece ? 0 : 1;
-        for (int i = 0; i < 6; i++)
-        {
-            ulong bitboard = board.GetPieceBitboard((PieceType)i + 1, whitePiece);
-            while (bitboard != 0)
-            {
-                gamePhase += 0x042110 >> i * 4 & 0xF; //gamephaseInc[i];
-                int j = BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard);
-                mgValue += mg_PST[w, i, j];
-                egValue += eg_PST[w, i, j];
-            }
-        }
-    }
-    int gamePhase, mgValue, egValue;
+    }*/
     int evaluateBoard()
     {
         count++;
-        (gamePhase, mgValue, egValue) = (0,0,0);
-        evaluateForColor(true, 0);
-        evaluateForColor(false, 1);
-        return (mgValue * gamePhase + egValue * (24 - gamePhase)) / 24;
+        int gamePhase=0, mgValue=0, egValue = 0;
+        foreach (bool whitePiece in new[] { true, false })
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                ulong bitboard = board.GetPieceBitboard((PieceType)i + 1, whitePiece);
+                while (bitboard != 0)
+                {
+                    gamePhase += 0x042110 >> i * 4 & 0xF; //gamephaseInc[i];
+                    int j = BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard) ^ (whitePiece ? 56 : 0); ;
+                    //mgValue += mg_PST[w, i, j];
+                    //egValue += eg_PST[w, i, j];
+                    mgValue += pestoTable[j][i];
+                    egValue += pestoTable[j][i + 6];
+                }
+            }
+            mgValue = -mgValue;
+            egValue = -egValue;
+        }
+        return (board.IsWhiteToMove?1:-1) * (mgValue * gamePhase + egValue * (24 - gamePhase)) / 24;
     }
 
 
