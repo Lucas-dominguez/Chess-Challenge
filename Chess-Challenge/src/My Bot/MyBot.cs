@@ -4,7 +4,7 @@ using System.Linq;
 using ChessChallenge.API;
 
 /// <summary>
-/// Main bot class that does the thinking.
+/// Main bot class that does the thinking. NAME= Scouty (https://en.wikipedia.org/wiki/Principal_variation_search)
 /// </summary>
 public class MyBot : IChessBot
 
@@ -22,6 +22,26 @@ public class MyBot : IChessBot
     //Depth=3 Nb move checks : 5 906 Nb positions saved : 1796 -> Move: 'e2a6' = 50 -> 0.1s
     //Depth=2 Nb move checks : 4 004 Nb positions saved : 138 -> Move: 'e2a6' = 390 -> 0.1s
     //Depth=1 Nb move checks : 166 Nb positions saved : 49 -> Move: 'e2a6' = 70 -> 0.1
+
+    /* With iterative : 
+Depth=2 move n°0 checks : 1890 -> Move: 'e2a6' = 23
+Depth=3 move n°0 checks : 3732 -> Move: 'e2a6' = 23
+Depth=4 move n°0 checks : 9007 -> Move: 'e2a6' = -10
+Depth=5 move n°0 checks : 37855 -> Move: 'd5e6' = 2
+Depth=6 move n°0 checks : 205721 -> Move: 'e2a6' = -27
+Depth=7 move n°0 checks : 642303 -> Move: 'e2a6' = 100000
+2s
+With null move pruning
+Depth=2 move n°0 checks : 1890 -> Move: 'e2a6' = 23
+Depth=3 move n°0 checks : 3733 -> Move: 'e2a6' = 23
+Depth=4 move n°0 checks : 9057 -> Move: 'e2a6' = -10
+Depth=5 move n°0 checks : 44412 -> Move: 'd5e6' = 2
+Depth=6 move n°0 checks : 229299 -> Move: 'e2a6' = -27
+Depth=7 move n°0 checks : 518857 -> Move: 'e2a6' = -30
+Depth=8 move n°0 checks : 527904 -> Move: 'e2a6' = 100000
+ 1.6s
+    */
+
     // 1- 1 -6 contre X, 2-2-12, 3-2-6, 2-4-8
     //best = 537 token -> 853 -> 959
     //int[] positionValues = { -50, -40, -30, -20, -10, -5, 0, 5, 10, 15, 20, 25, 30, 40, 50 };
@@ -92,6 +112,7 @@ public class MyBot : IChessBot
                 };*/
 
     //win vs mybotv1, oB3
+    // From Sidhant-Roymoulik -> todo test others packed PST
     decimal[] pestoCompressed = {
         63746705523041458768562654720m, 71818693703096985528394040064m, 75532537544690978830456252672m, 75536154932036771593352371712m, 76774085526445040292133284352m, 3110608541636285947269332480m, 936945638387574698250991104m, 75531285965747665584902616832m,
         77047302762000299964198997571m, 3730792265775293618620982364m, 3121489077029470166123295018m, 3747712412930601838683035969m, 3763381335243474116535455791m, 8067176012614548496052660822m, 4977175895537975520060507415m, 2475894077091727551177487608m,
@@ -102,7 +123,7 @@ public class MyBot : IChessBot
         73949978050619586491881614568m, 77043619187199676893167803647m, 1212557245150259869494540530m, 3081561358716686153294085872m, 3392217589357453836837847030m, 1219782446916489227407330320m, 78580145051212187267589731866m, 75798434925965430405537592305m,
         68369566912511282590874449920m, 72396532057599326246617936384m, 75186737388538008131054524416m, 77027917484951889231108827392m, 73655004947793353634062267392m, 76417372019396591550492896512m, 74568981255592060493492515584m, 70529879645288096380279255040m,
     };
-
+    bool doNull = true;
     //int[,,] mg_PST = new int[2, 6, 64];
     //int[,,] eg_PST = new int[2, 6, 64];
     int[][] pestoTable = new int[64][];
@@ -122,7 +143,7 @@ public class MyBot : IChessBot
         }).ToArray();
     }
 
-    MyMove[] tt = new MyMove[4000000]; //Max size TT 4000000
+    MyMove[] tt = new MyMove[0x400000]; //Max size TT ~4000000
 
     //int MAX_DEPTH = 6; //6 is ideal
     //int INF = 25000;
@@ -135,14 +156,11 @@ public class MyBot : IChessBot
         timer = _timer;
         killerMoves = new MyMove[6000];//Max ply
         count = 0;
-        /*if (timer.MillisecondsRemaining < 10000) //If 10s left -> aggressif quick mode
-            MAX_DEPTH = 5;*/
-        //Move bestMove = Move.NullMove;
-        for (int depth = 1; depth <= 50; depth++)
+        for (int depth = 1; ;)
         {
-            int bestScore = applyNegascoutOnmoves(depth, -100000, 100000, board.IsWhiteToMove ? 1 : -1, 0);
-            //Console.WriteLine("Depth=" + depth + " move n°" + board.PlyCount + " checks : " + count + " -> " + bestmoveRoot + " = " + bestScore);
-            if (timer.MillisecondsElapsedThisTurn >= timer.MillisecondsRemaining / 30)
+            int bestScore = applyNegascoutOnmoves(depth++, -100000, 100000, board.IsWhiteToMove ? 1 : -1, 0);
+            Console.WriteLine("Depth=" + depth + " move n°" + board.PlyCount + " checks : " + count + " -> " + bestmoveRoot + " = " + bestScore);
+            if (timer.MillisecondsElapsedThisTurn >= timer.MillisecondsRemaining / 40)
                 break;
         }
         //int bestScore = applyNegascoutOnmoves(MAX_DEPTH, -100000, 100000, board.IsWhiteToMove ? 1 : -1, ref bestMove);//- INF, +INF
@@ -162,7 +180,7 @@ public class MyBot : IChessBot
         if (!notroot && board.IsRepeatedPosition()) return 0;
         if (incheck) depth++;
 
-        MyMove ttMove = tt[zKey % 4000000];
+        MyMove ttMove = tt[zKey & 0x3FFFFF];
         if (!notroot && ttMove != null && ttMove.key == zKey && ttMove.depth >= depth)
         {
             switch (ttMove.flag)
@@ -185,27 +203,47 @@ public class MyBot : IChessBot
             if (bestMoveValue > beta) return bestMoveValue;
             alpha = Math.Max(alpha, bestMoveValue);
         }
+        else
+        {
+            if (doNull && !incheck && depth >=2)
+            {
+                doNull = false;
+                board.TrySkipTurn();
+                int nullScore = -applyNegascoutOnmoves(depth - 3 - depth / 6, -beta, 1 - beta, -color, ply + 1);
+                board.UndoSkipTurn();
+                doNull = true;
+                if (nullScore >= beta) return nullScore;
+            }
+        }
 
-        //Span<Move> stackMove = stackalloc Move[400];//generate moves, 400=upper max movement possible for a turn
-        //board.GetLegalMovesNonAlloc(ref stackMove);
-        var stackMove = board.GetLegalMoves(quiencense);
         var moves = new List<MyMove>();
-        foreach (Move m in stackMove) moves.Add(new MyMove(m));
-        scoreMoves(moves, ttMove);//Apply a sort score to all moves
+        //Score moves
+        foreach(Move m in board.GetLegalMoves(quiencense)){
+            int value = 0;
+            MyMove move = new MyMove(m);
+            if (move.equals(ttMove)) //TT ordering
+                value = MVA_OFFSET + 60;
+            else if (move.move.IsCapture) //Capture ordering
+                value = MVA_OFFSET + (0xABCDEF0 >> (int)move.move.MovePieceType * 4 & 0xF) + 10 * (int)move.move.CapturePieceType; //MVV_LVA
+            else //Killer move ordering
+                if (move.Equals(killerMoves[board.PlyCount]))
+                    value = MVA_OFFSET - 10; //10 = killerValue
+            move.sortScore = value;
+            moves.Add(move);
+        }
 
         MyMove bestMove = new MyMove(Move.NullMove);
 
         for (int i = 0; i < moves.Count; i++)
         {
-            if (timer.MillisecondsElapsedThisTurn >= timer.MillisecondsRemaining / 30) return 100000;
+            if (timer.MillisecondsElapsedThisTurn >= timer.MillisecondsRemaining / 40) return 100000;
 
-            //PickMove -> put the best sort score at the first index
+            //PickMove -> put the best sort score at the first index -> best to order inside the loop to use full capacity of move ordering
             for (int j = i + 1; j < moves.Count; j++)
                 if (moves[j].sortScore > moves[i].sortScore)
                     (moves[i], moves[j]) = (moves[j], moves[i]); //swap
             MyMove currentMove = moves[i];
             board.MakeMove(currentMove.move);
-            //Move node_pv = pv;
             int currentScore = 0; //DRAW score
             if (!board.IsDraw())
             {
@@ -250,7 +288,7 @@ public class MyBot : IChessBot
         bestMove.value = bestMoveValue;
         bestMove.depth = depth;
         bestMove.key = zKey;
-        tt[zKey % 4000000] = bestMove;
+        tt[zKey & 0x3FFFFF] = bestMove;
         return bestMoveValue;
     }
     //int[] gamephaseInc = { 0, 1, 1, 2, 4, 0 };// -> 0x042110
@@ -288,6 +326,7 @@ public class MyBot : IChessBot
         return (board.IsWhiteToMove ? 1 : -1) * (mgValue * gamePhase + egValue * (24 - gamePhase)) / 24;
     }
 
+    int MVA_OFFSET = int.MaxValue - 256;
 
     /*int[][] MVV_LVA = { -> 
         new int[]{15, 14, 13, 12, 11, 10 }, // victim P, attacker P, N, B, R, Q, K
@@ -299,7 +338,7 @@ public class MyBot : IChessBot
     };*/
 
 
-    int MVA_OFFSET = int.MaxValue - 256;
+    /*
     void scoreMoves(List<MyMove> moves, MyMove ttMove)
     {
         for (int i = 0; i < moves.Count; i++)
@@ -316,8 +355,8 @@ public class MyBot : IChessBot
                     value = MVA_OFFSET - 10; //10 = killerValue
             move.sortScore = value;
         }
-    }
-    
+    }*/
+
     class MyMove
     {
         public Move move;
