@@ -2,12 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using ChessChallenge.API;
-using System;
-using System.Linq;
-
-
-
-
 
 /// <summary>
 /// Main bot class that does the thinking.
@@ -22,6 +16,7 @@ public class MyBot : IChessBot
     //Depth=8 move n°0 checks : 3 518 421 Nb positions saved : 1388626 -> Move: 'e2a6' = -41 -> 11.8 (with pesto) 
     //Depth=7 move n°0 checks : 1 257 329 Nb positions saved : 238708 -> Move: 'e2a6' = 27 -> 5.4 -> 3.1
     //Depth=6 move n°0 checks : 2 453 28 Nb positions saved : 77741 -> Move: 'e2a6' = 42 -> 1.3 (1.4 without init) -> 0.9 (with bitboard)
+    //Depth=6 move n°0 checks : 326 165 -> Move: 'e2a6' = -30 -> 1s
     //Depth=6 move n°0 checks : 325 443 Nb positions saved : 96311 -> Move: 'e2a6' = -30
     //Depth=5 Nb move checks : 107 362 Nb positions saved : 6107 -> Move: 'd5e6' = 315 -> 0.4s
     //Depth=4 Nb move checks : 317 510 Nb positions saved : 68992 -> Move: 'd5e6' = 315 -> 1.4s
@@ -97,6 +92,7 @@ public class MyBot : IChessBot
             0xfdacd04c0cf0, 0xdd0af05a0ae0, 0xcc1cc02a0ad0, 0xae09b0091ad0, 0xd99ac0091ad0, 0xbdbbc02a0ad0, 0xcc19f05a0ae0, 0xeecbf04c0cf0,
                 };*/
 
+    //win vs mybotv1, oB3
     decimal[] pestoCompressed = {
         63746705523041458768562654720m, 71818693703096985528394040064m, 75532537544690978830456252672m, 75536154932036771593352371712m, 76774085526445040292133284352m, 3110608541636285947269332480m, 936945638387574698250991104m, 75531285965747665584902616832m,
         77047302762000299964198997571m, 3730792265775293618620982364m, 3121489077029470166123295018m, 3747712412930601838683035969m, 3763381335243474116535455791m, 8067176012614548496052660822m, 4977175895537975520060507415m, 2475894077091727551177487608m,
@@ -108,8 +104,8 @@ public class MyBot : IChessBot
         68369566912511282590874449920m, 72396532057599326246617936384m, 75186737388538008131054524416m, 77027917484951889231108827392m, 73655004947793353634062267392m, 76417372019396591550492896512m, 74568981255592060493492515584m, 70529879645288096380279255040m,
     };
 
-    int[,,] mg_PST = new int[2, 6, 64];
-    int[,,] eg_PST = new int[2, 6, 64];
+    //int[,,] mg_PST = new int[2, 6, 64];
+    //int[,,] eg_PST = new int[2, 6, 64];
     int[][] pestoTable = new int[64][];
     short[] pvm = { 82, 337, 365, 477, 1025, 0, // Middlegame
                     94, 281, 297, 512, 936, 0};
@@ -134,7 +130,8 @@ public class MyBot : IChessBot
         }).ToArray();
     }
 
-    Dictionary<ulong, MyMove> transposition = new Dictionary<ulong, MyMove>();
+    MyMove[] tt = new MyMove[1000000]; //Max size TT 1000000
+
     int MAX_DEPTH = 6; //6 is ideal
     //int INF = 25000;
     int count;
@@ -146,10 +143,10 @@ public class MyBot : IChessBot
         killerMoves = new MyMove[6000];//Max ply
         count = 0;
         if (timer.MillisecondsRemaining < 10000) //If 10s left -> aggressif quick mode
-            MAX_DEPTH = 6;
+            MAX_DEPTH = 5;
         Move bestMove = Move.NullMove;
         int bestScore = applyNegascoutOnmoves(MAX_DEPTH, -100000, 100000, board.IsWhiteToMove ? 1 : -1, ref bestMove);//- INF, +INF
-        Console.WriteLine("Depth=" + MAX_DEPTH + " move n°" + board.PlyCount + " checks : " + count + " Nb positions saved : " + transposition.Count + " -> " + bestMove + " = " + bestScore);
+        Console.WriteLine("Depth=" + MAX_DEPTH + " move n°" + board.PlyCount + " checks : " + count + " -> " + bestMove + " = " + bestScore);
         return bestMove;
     }
 
@@ -162,25 +159,25 @@ public class MyBot : IChessBot
             incheck = board.IsInCheck(),
             root = depth == MAX_DEPTH;
         int alphaOrigin = alpha;
+        ulong zKey = board.ZobristKey;
         if (!root && board.IsRepeatedPosition()) return 0;
         if (incheck) depth++;
-        if (transposition.TryGetValue(board.ZobristKey, out MyMove? ttMove))
+
+        MyMove ttMove = tt[zKey % 1000000];
+        if (!root && ttMove != null && ttMove.key == zKey && ttMove.depth >= depth)
         {
-            if (ttMove.depth >= depth)
+            switch (ttMove.flag)
             {
-                switch (ttMove.flag)
-                {
-                    case 0:
-                        alpha = Math.Max(alpha, ttMove.value);
-                        break;
-                    case 1:
-                        beta = Math.Min(beta, ttMove.value);
-                        break;
-                    case 2:
-                        return ttMove.value;
-                }
-                if (alpha >= beta) return ttMove.value;
+                case 0:
+                    alpha = Math.Max(alpha, ttMove.value);
+                    break;
+                case 1:
+                    beta = Math.Min(beta, ttMove.value);
+                    break;
+                case 2:
+                    return ttMove.value;
             }
+            if (alpha >= beta) return ttMove.value;
         }
         int bestMoveValue = -200000;
         if (quiencense)
@@ -210,10 +207,6 @@ public class MyBot : IChessBot
             board.MakeMove(currentMove.move);
             Move node_pv = pv;
             int currentScore = 0; //DRAW score
-            /*if (currentMove.move.ToString().Equals("Move: 'b4c3'"))
-            {
-                Console.WriteLine(currentMove.move);
-            }*/
             if (!board.IsDraw())
             {
                 if (!dopv) currentScore = -applyNegascoutOnmoves(depth - 1, -beta, -alpha, -color, ref node_pv);
@@ -255,7 +248,8 @@ public class MyBot : IChessBot
         else bestMove.flag = (bestMoveValue <= alphaOrigin) ? 1 : 2; //upperbound : exact
         bestMove.value = bestMoveValue;
         bestMove.depth = depth;
-        transposition.TryAdd(board.ZobristKey, bestMove);
+        bestMove.key = zKey;
+        tt[zKey % 1000000] = bestMove;
         return bestMoveValue;
     }
     //int[] gamephaseInc = { 0, 1, 1, 2, 4, 0 };// -> 0x042110
@@ -271,7 +265,7 @@ public class MyBot : IChessBot
     int evaluateBoard()
     {
         count++;
-        int gamePhase=0, mgValue=0, egValue = 0;
+        int gamePhase = 0, mgValue = 0, egValue = 0;
         foreach (bool whitePiece in new[] { true, false })
         {
             for (int i = 0; i < 6; i++)
@@ -290,7 +284,7 @@ public class MyBot : IChessBot
             mgValue = -mgValue;
             egValue = -egValue;
         }
-        return (board.IsWhiteToMove?1:-1) * (mgValue * gamePhase + egValue * (24 - gamePhase)) / 24;
+        return (board.IsWhiteToMove ? 1 : -1) * (mgValue * gamePhase + egValue * (24 - gamePhase)) / 24;
     }
 
 
@@ -305,25 +299,26 @@ public class MyBot : IChessBot
 
 
     int MVA_OFFSET = int.MaxValue - 256;
-    void scoreMoves(List<MyMove> moves, MyMove? ttMove)
+    void scoreMoves(List<MyMove> moves, MyMove ttMove)
     {
         for (int i = 0; i < moves.Count; i++)
         {
             int value = 0;
             MyMove move = moves[i];
-            if (ttMove != null && move.move.Equals(ttMove.move)) //TT ordering
+            if (move.equals(ttMove)) //TT ordering
                 value = MVA_OFFSET + 60;
             else if (move.move.IsCapture) //Capture ordering
                 value = MVA_OFFSET + (0xABCDEF0 >> (int)move.move.MovePieceType * 4 & 0xF) + 10 * (int)move.move.CapturePieceType; //MVV_LVA
             else //Killer move ordering
-                //for (int n = 0; n < 2; n++)
-                if (killerMoves[board.PlyCount] != null && move.move.Equals(killerMoves[board.PlyCount].move))
+                 //for (int n = 0; n < 2; n++)
+                if (move.Equals(killerMoves[board.PlyCount]))
                     value = MVA_OFFSET - 10; //10 = killerValue
-                
+
             move.sortScore = value;
         }
     }
-    class MyMove //also tt entry
+    
+    /*class MyMove //also tt entry
     {
         public Move move;
         public int sortScore;
@@ -333,6 +328,17 @@ public class MyBot : IChessBot
         //2 -> exact
         public int flag;
         public int depth;
+        public ulong key;
         public MyMove(Move _move) => move = _move;
+    }*/
+    class MyMove
+    {
+        public Move move = Move.NullMove;
+        public ulong key = 0;
+        public int depth = 0, value = 0, flag = 0, sortScore = 0;
+        public MyMove(Move _move) => move = _move;
+        // override object.Equals
+        public bool equals(MyMove obj) => obj != null && move.Equals(obj.move);
+
     }
 }
