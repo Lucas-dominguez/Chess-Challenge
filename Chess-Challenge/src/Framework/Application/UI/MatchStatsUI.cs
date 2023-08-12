@@ -23,15 +23,17 @@ namespace ChessChallenge.Application
                 DrawStats(controller.BotStatsA);
                 startPos.Y += spacingY * 2;
                 DrawStats(controller.BotStatsB);
-           
 
-                void DrawStats(ChallengeController.BotMatchStats stats)
+
+
+				void DrawStats(ChallengeController.BotMatchStats stats)
                 {
                     DrawNextText(stats.BotName + ":", nameFontSize, Color.WHITE);
                     DrawNextText($"Score: +{stats.NumWins} ={stats.NumDraws} -{stats.NumLosses}", regularFontSize, col);
                     DrawNextText($"Num Timeouts: {stats.NumTimeouts}", regularFontSize, col);
                     DrawNextText($"Num Illegal Moves: {stats.NumIllegalMoves}", regularFontSize, col);
-                }
+					DrawNextText($"Winrate: {(float)stats.NumWins / (controller.CurrGameNumber - 1) * 100}%", regularFontSize, col);
+				}
            
                 void DrawNextText(string text, int fontSize, Color col)
                 {

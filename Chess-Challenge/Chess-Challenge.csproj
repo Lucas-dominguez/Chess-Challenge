@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="Raylib-cs" Version="4.5.0.2" />
+    <PackageReference Include="Stockfish.NET" Version="1.0.7" />
   </ItemGroup>
 
   <ItemGroup>
@@ -29,7 +30,28 @@
     <Compile Update="src\Framework\Application\UI\BotBrainCapacityUI.cs">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Compile>
-    <Compile Update="src\Evil Bot\EvilBot.cs">
+    <Compile Update="src\OtherBots\MyBotV2.cs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Compile>
+    <Compile Update="src\OtherBots\MyBotV3.cs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Compile>
+    <Compile Update="src\OtherBots\NegamaxBasic.cs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Compile>
+    <Compile Update="src\OtherBots\OtherBot1.cs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Compile>
+    <Compile Update="src\OtherBots\OtherBot2.cs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Compile>
+    <Compile Update="src\OtherBots\MyBotV1.cs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Compile>
+    <Compile Update="src\OtherBots\StockfishBot.cs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Compile>
+    <Compile Update="src\OtherBots\OtherBot3.cs">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Compile>
   </ItemGroup>
@@ -47,6 +69,9 @@
     <None Update="resources\Pieces.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+	<None Update="resources\stockfish\stockfish12.exe">
+		<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</None>
   </ItemGroup>
 
   <ItemGroup>

@@ -396,3 +396,5 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+/Chess-Challenge/stockfish/stockfish-windows-x86-64-avx2.exe
+/Chess-Challenge/resources/stockfish/stockfish12.exe

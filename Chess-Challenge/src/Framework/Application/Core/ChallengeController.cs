@@ -1,5 +1,4 @@
 ﻿using ChessChallenge.Chess;
-using ChessChallenge.Example;
 using Raylib_cs;
 using System;
 using System.IO;
@@ -19,7 +18,14 @@ namespace ChessChallenge.Application
         {
             Human,
             MyBot,
-            EvilBot
+            NegamaxBasic,
+            MyBotV1,
+            MyBotV2,
+            MyBotV3,
+            OtherBot1,
+            OtherBot2,
+            OtherBot3,
+            Stockfish
         }
 
         // Game state
@@ -39,6 +45,7 @@ namespace ChessChallenge.Application
         // Bot match state
         readonly string[] botMatchStartFens;
         int botMatchGameIndex;
+        int[] fenOrdering;
         public BotMatchStats BotStatsA { get; private set; }
         public BotMatchStats BotStatsB {get;private set;}
         bool botAPlaysWhite;
@@ -72,8 +79,10 @@ namespace ChessChallenge.Application
             BotStatsB = new BotMatchStats("IBot");
             botMatchStartFens = FileHelper.ReadResourceFile("Fens.txt").Split('\n').Where(fen => fen.Length > 0).ToArray();
             botTaskWaitHandle = new AutoResetEvent(false);
+			fenOrdering = Enumerable.Range(0, botMatchStartFens.Length).ToArray();
+			fenOrdering = fenOrdering.OrderBy(x => rng.Next()).ToArray();
 
-            StartNewGame(PlayerType.Human, PlayerType.MyBot);
+			StartNewGame(PlayerType.Human, PlayerType.MyBot);
         }
 
         public void StartNewGame(PlayerType whiteType, PlayerType blackType)
@@ -94,7 +103,7 @@ namespace ChessChallenge.Application
             // Board Setup
             board = new Board();
             bool isGameWithHuman = whiteType is PlayerType.Human || blackType is PlayerType.Human;
-            int fenIndex = isGameWithHuman ? 0 : botMatchGameIndex / 2;
+            int fenIndex = isGameWithHuman ? 0 : fenOrdering[botMatchGameIndex / 2];
             board.LoadPosition(botMatchStartFens[fenIndex]);
 
             // Player Setup
@@ -209,8 +218,15 @@ namespace ChessChallenge.Application
             return type switch
             {
                 PlayerType.MyBot => new ChessPlayer(new MyBot(), type, GameDurationMilliseconds),
-                PlayerType.EvilBot => new ChessPlayer(new EvilBot(), type, GameDurationMilliseconds),
-                _ => new ChessPlayer(new HumanPlayer(boardUI), type)
+                PlayerType.NegamaxBasic => new ChessPlayer(new NegamaxBasic(), type, GameDurationMilliseconds),
+				PlayerType.MyBotV1 => new ChessPlayer(new MyBotV1(), type, GameDurationMilliseconds),
+				PlayerType.MyBotV2 => new ChessPlayer(new MyBotV2(), type, GameDurationMilliseconds),
+				PlayerType.MyBotV3 => new ChessPlayer(new MyBotV3(), type, GameDurationMilliseconds),
+				PlayerType.OtherBot1 => new ChessPlayer(new OtherBot1(), type, GameDurationMilliseconds),
+				PlayerType.OtherBot2 => new ChessPlayer(new OtherBot2(), type, GameDurationMilliseconds),
+				PlayerType.OtherBot3 => new ChessPlayer(new OtherBot3(), type, GameDurationMilliseconds),
+				PlayerType.Stockfish => new ChessPlayer(new StockfishBot(), type, GameDurationMilliseconds),
+				_ => new ChessPlayer(new HumanPlayer(boardUI), type)
             };
         }
 

@@ -2,7 +2,16 @@
 using System.Collections.Generic;
 using System.Linq;
 using ChessChallenge.API;
+using System;
+using System.Linq;
 
+
+
+
+
+/// <summary>
+/// Main bot class that does the thinking.
+/// </summary>
 public class MyBot : IChessBot
 
 {
