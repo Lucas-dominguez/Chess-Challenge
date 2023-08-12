@@ -14,10 +14,9 @@ public class MyBot : IChessBot
     //Depth=8 move n°0 checks : 3 392 607 Nb positions saved : 1327587 -> Move: 'e2a6' = 5 -> 17.2s (19 without init) -> 12.1
     //Depth=8 move n°0 checks : 3 396 320 Nb positions saved : 1329521 -> Move: 'e2a6' = 5 (with one killermove) -> 11.7
     //Depth=8 move n°0 checks : 3 518 421 Nb positions saved : 1388626 -> Move: 'e2a6' = -41 -> 11.8 (with pesto) 
-    //Depth=7 move n°0 checks : 1 257 329 Nb positions saved : 238708 -> Move: 'e2a6' = 27 -> 5.4 -> 3.1
-    //Depth=6 move n°0 checks : 2 453 28 Nb positions saved : 77741 -> Move: 'e2a6' = 42 -> 1.3 (1.4 without init) -> 0.9 (with bitboard)
+    //Depth=8 move n°0 checks : 6 875 033 -> Move: 'e2a6' = -82 -> 23s (with check depth and others)
+    //Depth=7 move n°0 checks : 1 662 195 -> Move: 'e2a6' = -36 -> 5.4 -> 3.1 -> 4.6
     //Depth=6 move n°0 checks : 326 165 -> Move: 'e2a6' = -30 -> 1s
-    //Depth=6 move n°0 checks : 325 443 Nb positions saved : 96311 -> Move: 'e2a6' = -30
     //Depth=5 Nb move checks : 107 362 Nb positions saved : 6107 -> Move: 'd5e6' = 315 -> 0.4s
     //Depth=4 Nb move checks : 317 510 Nb positions saved : 68992 -> Move: 'd5e6' = 315 -> 1.4s
     //Depth=3 Nb move checks : 5 906 Nb positions saved : 1796 -> Move: 'e2a6' = 50 -> 0.1s
@@ -109,17 +108,10 @@ public class MyBot : IChessBot
     int[][] pestoTable = new int[64][];
     short[] pvm = { 82, 337, 365, 477, 1025, 0, // Middlegame
                     94, 281, 297, 512, 936, 0};
+    Move bestmoveRoot = Move.NullMove;
+    Timer timer;
     public MyBot()
     {
-
-        /*for (int i = 0; i < 6; i++)
-        {
-            for (int j = 0; j < 64; j++)
-            {
-                (mg_PST[0, i, j], mg_PST[1, i, j]) = (getPSTValue(0, true, i, j), getPSTValue(0, false, i, j));
-                (eg_PST[0, i, j], eg_PST[1, i, j]) = (getPSTValue(1, true, i, j), getPSTValue(1, false, i, j));
-            }
-        }*/
         pestoTable = pestoCompressed.Select(packedTable =>
         {
             int pieceType = 0;
@@ -130,41 +122,48 @@ public class MyBot : IChessBot
         }).ToArray();
     }
 
-    MyMove[] tt = new MyMove[1000000]; //Max size TT 1000000
+    MyMove[] tt = new MyMove[4000000]; //Max size TT 4000000
 
-    int MAX_DEPTH = 6; //6 is ideal
+    //int MAX_DEPTH = 6; //6 is ideal
     //int INF = 25000;
     int count;
     MyMove[] killerMoves; //keep only 1 instead of 2 because save time and token.
     Board board;
-    public Move Think(Board _board, Timer timer)
+    public Move Think(Board _board, Timer _timer)
     {
         board = _board;
+        timer = _timer;
         killerMoves = new MyMove[6000];//Max ply
         count = 0;
-        if (timer.MillisecondsRemaining < 10000) //If 10s left -> aggressif quick mode
-            MAX_DEPTH = 5;
-        Move bestMove = Move.NullMove;
-        int bestScore = applyNegascoutOnmoves(MAX_DEPTH, -100000, 100000, board.IsWhiteToMove ? 1 : -1, ref bestMove);//- INF, +INF
-        Console.WriteLine("Depth=" + MAX_DEPTH + " move n°" + board.PlyCount + " checks : " + count + " -> " + bestMove + " = " + bestScore);
-        return bestMove;
+        /*if (timer.MillisecondsRemaining < 10000) //If 10s left -> aggressif quick mode
+            MAX_DEPTH = 5;*/
+        //Move bestMove = Move.NullMove;
+        for (int depth = 1; depth <= 50; depth++)
+        {
+            int bestScore = applyNegascoutOnmoves(depth, -100000, 100000, board.IsWhiteToMove ? 1 : -1, 0);
+            //Console.WriteLine("Depth=" + depth + " move n°" + board.PlyCount + " checks : " + count + " -> " + bestmoveRoot + " = " + bestScore);
+            if (timer.MillisecondsElapsedThisTurn >= timer.MillisecondsRemaining / 30)
+                break;
+        }
+        //int bestScore = applyNegascoutOnmoves(MAX_DEPTH, -100000, 100000, board.IsWhiteToMove ? 1 : -1, ref bestMove);//- INF, +INF
+        return bestmoveRoot.IsNull ? board.GetLegalMoves()[0] : bestmoveRoot;
     }
 
     //Test with minimax, negamaw -> negascout was the most quick and strong.
     //inspired by https://rustic-chess.org/search/ordering/how.html
-    int applyNegascoutOnmoves(int depth, int alpha, int beta, int color, ref Move pv)
+    int applyNegascoutOnmoves(int depth, int alpha, int beta, int color, int ply)
     {
         bool quiencense = depth <= 0,
             dopv = false,
             incheck = board.IsInCheck(),
-            root = depth == MAX_DEPTH;
+            notroot = ply > 0;
         int alphaOrigin = alpha;
         ulong zKey = board.ZobristKey;
-        if (!root && board.IsRepeatedPosition()) return 0;
+        if (!notroot && board.IsRepeatedPosition()) return 0;
         if (incheck) depth++;
 
-        MyMove ttMove = tt[zKey % 1000000];
-        if (!root && ttMove != null && ttMove.key == zKey && ttMove.depth >= depth)
+        MyMove ttMove = tt[zKey % 4000000];
+        if (!notroot && ttMove != null && ttMove.key == zKey && ttMove.depth >= depth)
         {
             switch (ttMove.flag)
             {
@@ -198,22 +197,23 @@ public class MyBot : IChessBot
 
         for (int i = 0; i < moves.Count; i++)
         {
+            if (timer.MillisecondsElapsedThisTurn >= timer.MillisecondsRemaining / 30) return 100000;
+
             //PickMove -> put the best sort score at the first index
             for (int j = i + 1; j < moves.Count; j++)
                 if (moves[j].sortScore > moves[i].sortScore)
                     (moves[i], moves[j]) = (moves[j], moves[i]); //swap
             MyMove currentMove = moves[i];
-
             board.MakeMove(currentMove.move);
-            Move node_pv = pv;
+            //Move node_pv = pv;
             int currentScore = 0; //DRAW score
             if (!board.IsDraw())
             {
-                if (!dopv) currentScore = -applyNegascoutOnmoves(depth - 1, -beta, -alpha, -color, ref node_pv);
+                if (!dopv) currentScore = -applyNegascoutOnmoves(depth - 1, -beta, -alpha, -color, ply+1);
                 else
                 {
-                    currentScore = -applyNegascoutOnmoves(depth - 1, -alpha - 1, -alpha, -color, ref node_pv);
-                    if (currentScore > alpha && currentScore < beta) currentScore = -applyNegascoutOnmoves(depth - 1, -beta, -alpha, -color, ref node_pv);
+                    currentScore = -applyNegascoutOnmoves(depth - 1, -alpha - 1, -alpha, -color, ply+1);
+                    if (currentScore > alpha && currentScore < beta) currentScore = -applyNegascoutOnmoves(depth - 1, -beta, -alpha, -color, ply+1);
                 }
             }
             board.UndoMove(currentMove.move);
@@ -221,12 +221,13 @@ public class MyBot : IChessBot
             {
                 bestMoveValue = currentScore;
                 bestMove = currentMove;
+                if (!notroot) bestmoveRoot = bestMove.move;
             }
             if (bestMoveValue > alpha)
             {
                 alpha = bestMoveValue;
                 dopv = true;
-                pv = bestMove.move;
+                //pv = bestMove.move;
             }
             if (alpha >= beta)
             {
@@ -241,7 +242,7 @@ public class MyBot : IChessBot
         if (!quiencense && moves.Count == 0)
         {
             if (board.IsInCheck())
-                return board.PlyCount - 100000; //we are checkmate
+                return ply - 100000; //we are checkmate
             return 0; //stalemate
         }
         if (bestMoveValue >= beta) bestMove.flag = 0;//lowerbound
@@ -249,7 +250,7 @@ public class MyBot : IChessBot
         bestMove.value = bestMoveValue;
         bestMove.depth = depth;
         bestMove.key = zKey;
-        tt[zKey % 1000000] = bestMove;
+        tt[zKey % 4000000] = bestMove;
         return bestMoveValue;
     }
     //int[] gamephaseInc = { 0, 1, 1, 2, 4, 0 };// -> 0x042110
@@ -313,29 +314,15 @@ public class MyBot : IChessBot
                  //for (int n = 0; n < 2; n++)
                 if (move.Equals(killerMoves[board.PlyCount]))
                     value = MVA_OFFSET - 10; //10 = killerValue
-
             move.sortScore = value;
         }
     }
     
-    /*class MyMove //also tt entry
-    {
-        public Move move;
-        public int sortScore;
-        public int value;
-        //0 -> alpha
-        //1 -> beta
-        //2 -> exact
-        public int flag;
-        public int depth;
-        public ulong key;
-        public MyMove(Move _move) => move = _move;
-    }*/
     class MyMove
     {
-        public Move move = Move.NullMove;
-        public ulong key = 0;
-        public int depth = 0, value = 0, flag = 0, sortScore = 0;
+        public Move move;
+        public ulong key;
+        public int depth, value, flag, sortScore;
         public MyMove(Move _move) => move = _move;
         // override object.Equals
         public bool equals(MyMove obj) => obj != null && move.Equals(obj.move);
